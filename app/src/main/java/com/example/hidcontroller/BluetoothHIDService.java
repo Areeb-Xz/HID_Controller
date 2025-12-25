@@ -58,9 +58,9 @@ public class BluetoothHIDService extends Service {
         connectedDevice = device;
     }
 
-    public void sendKeyPress(String keyLabel) {
+    public void sendKeyPress(String keyLabel, byte modifier) {
         if (connectedDevice == null) {
-            Log.w(TAG, "No device connected");
+            Log.w(TAG, "No device connected, cannot send key");
             return;
         }
 
@@ -70,8 +70,8 @@ public class BluetoothHIDService extends Service {
             return;
         }
 
-        // Send key down
-        sendHIDReport((byte) hidCode, (byte) 0x00);
+        // Key down with modifier
+        createAndSendReport((byte) hidCode, modifier);
 
         try {
             Thread.sleep(10);
@@ -79,24 +79,26 @@ public class BluetoothHIDService extends Service {
             e.printStackTrace();
         }
 
-        // Send key up
-        sendHIDReport((byte) 0x00, (byte) 0x00);
+        // Key up (no key, no modifier)
+        createAndSendReport((byte) 0x00, (byte) 0x00);
 
-        Log.d(TAG, "Key sent: " + keyLabel + " (code: 0x" + String.format("%02X", hidCode) + ")");
+        Log.d(TAG, "Key sent: " + keyLabel + " (code: 0x" + String.format("%02X", hidCode) +
+                ", modifier: 0x" + String.format("%02X", modifier) + ")");
     }
 
-    private void sendHIDReport(byte keyCode, byte modifier) {
+
+    private void createAndSendReport(byte keyCode, byte modifier) {
         byte[] report = new byte[8];
-        report[0] = modifier;
-        report[1] = 0x00;
-        report[2] = keyCode;
+        report[0] = modifier;  // modifier byte (Shift/Ctrl/etc.)
+        report[1] = 0x00;      // reserved
+        report[2] = keyCode;   // first key code
         report[3] = 0x00;
         report[4] = 0x00;
         report[5] = 0x00;
         report[6] = 0x00;
         report[7] = 0x00;
 
-        Log.d(TAG, "HID Report: " + bytesToHex(report));
+        Log.d(TAG, "HID Report created: " + bytesToHex(report));
     }
 
     public BluetoothDevice getConnectedDevice() {

@@ -17,6 +17,8 @@ public class KeyboardActivity extends AppCompatActivity {
     private TextView keyboardStatus;
     private BluetoothHIDService hidService;
     private boolean isBound = false;
+    private boolean isShiftActive = false;
+
 
     // 50-key QWERTY keyboard layout (5x10 grid)
     private String[][] keyboardLayout = {
@@ -24,7 +26,7 @@ public class KeyboardActivity extends AppCompatActivity {
             {"A", "S", "D", "F", "G", "H", "J", "K", "L", ";"},
             {"Z", "X", "C", "V", "B", "N", "M", ",", ".", "/"},
             {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
-            {"-", "=", "[", "]", "\\", "'", "`", "Space", "Back", "Enter"}
+            {"-", "=", "[", "]", "\\", "'", "`", "Shift", "Space", "Back", "Enter"}
     };
 
     @Override
@@ -87,19 +89,43 @@ public class KeyboardActivity extends AppCompatActivity {
 
     private void onKeyDown(String keyLabel, Button button) {
         button.setBackgroundColor(0xFF606060);
-        logToStatus("Key DOWN: " + keyLabel);
-        Log.d(TAG, "Key pressed: " + keyLabel);
+        if ("Shift".equals(keyLabel)) {
+            // Just visual feedback; actual toggle happens on UP
+            logToStatus("Shift pressed");
+        } else {
+            logToStatus("Key DOWN: " + keyLabel);
+            Log.d(TAG, "Key pressed: " + keyLabel);
+        }
     }
 
+    private Button shiftButton; // field in class
     private void onKeyUp(String keyLabel, Button button) {
         button.setBackgroundColor(0xFF404040);
+
+        if ("Shift".equals(keyLabel)) {
+            // toggle shift
+            isShiftActive = !isShiftActive;
+            shiftButton = button; // remember it
+            shiftButton.setBackgroundColor(isShiftActive ? 0xFF808080 : 0xFF404040);
+            return;
+        }
+
+        // normal key
         logToStatus("Key UP: " + keyLabel);
 
         if (hidService != null && hidService.isConnected()) {
-            hidService.sendKeyPress(keyLabel);
-            Log.d(TAG, "Sent key via HID: " + keyLabel);
-        } else {
-            logToStatus("Not connected to device");
+            byte modifier = isShiftActive ? (byte) 0x02 : (byte) 0x00;
+            hidService.sendKeyPress(keyLabel, modifier);  // sends key
+            Log.d(TAG, "Sent key via HID: " + keyLabel + " modifier=" + modifier);
+        }
+
+        // turn shift off AFTER sending one key
+        if (isShiftActive) {
+            isShiftActive = false;
+            if (shiftButton != null) {
+                shiftButton.setBackgroundColor(0xFF404040);
+            }
+            logToStatus("Shift OFF");
         }
     }
 
