@@ -41,7 +41,9 @@
         <!-- Keyboard Activity -->
         <activity
             android:name=".KeyboardActivity"
-            android:label="Keyboard"/>
+            android:label="Keyboard"
+            android:screenOrientation="landscape"
+            />
 
         <activity
             android:name=".BluetoothConnectionActivity"
@@ -51,7 +53,5 @@
             android:name=".BluetoothHIDService"
             android:enabled="true"
             android:exported="false" />
-
     </application>
-
 </manifest>

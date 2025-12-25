@@ -7,17 +7,13 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
-
 import androidx.annotation.Nullable;
-
 import java.util.Set;
 
 public class BluetoothHIDService extends Service {
     private static final String TAG = "BluetoothHIDService";
-
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothDevice connectedDevice;
-
     private final IBinder binder = new LocalBinder();
 
     public class LocalBinder extends Binder {
@@ -58,34 +54,58 @@ public class BluetoothHIDService extends Service {
         connectedDevice = device;
     }
 
-    public void sendKeyPress(String keyLabel, byte modifier) {
-        if (connectedDevice == null) {
-            Log.w(TAG, "No device connected, cannot send key");
-            return;
-        }
-
-        int hidCode = HIDKeyCode.getHIDCode(keyLabel);
-        if (hidCode == 0x00) {
-            Log.w(TAG, "Unknown key: " + keyLabel);
-            return;
-        }
-
-        // Key down with modifier
-        createAndSendReport((byte) hidCode, modifier);
-
-        try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Key up (no key, no modifier)
-        createAndSendReport((byte) 0x00, (byte) 0x00);
-
-        Log.d(TAG, "Key sent: " + keyLabel + " (code: 0x" + String.format("%02X", hidCode) +
-                ", modifier: 0x" + String.format("%02X", modifier) + ")");
+    public void sendKeyPress(String keyLabel) {
+        sendKeyPress(new String[]{keyLabel});
     }
 
+    public void sendKeyPress(String[] keys) {
+        if (connectedDevice == null) {
+            Log.w(TAG, "No device connected");
+            return;
+        }
+
+        byte modifier = 0x00;
+        byte[] keyCodes = new byte[6];
+        int keyCount = 0;
+
+        for (String keyLabel : keys) {
+            int hidCode = HIDKeyCode.getHIDCode(keyLabel);
+            if (hidCode == 0x00) continue;
+
+            if (keyLabel.equals("Ctrl")) modifier |= 0x01;
+            else if (keyLabel.equals("Shift")) modifier |= 0x02;
+            else if (keyLabel.equals("Alt")) modifier |= 0x04;
+            else if (keyLabel.equals("GUI")) modifier |= 0x08;
+            else if (keyCount < 6) {
+                keyCodes[keyCount++] = (byte) hidCode;
+            }
+        }
+
+        if (keyCount == 0) {
+            Log.w(TAG, "No valid keys");
+            return;
+        }
+
+        // Key down
+        sendHIDReport(modifier, keyCodes, keyCount);
+        try { Thread.sleep(50); } catch (InterruptedException e) { }
+
+        // Key up
+        byte[] empty = new byte[8];
+        Log.d(TAG, "Key UP: " + bytesToHex(empty));
+
+        Log.d(TAG, "Combo sent: " + String.join(" + ", keys));
+    }
+
+    private void sendHIDReport(byte modifier, byte[] keyCodes, int keyCount) {
+        byte[] report = new byte[8];
+        report[0] = modifier;
+        report[1] = 0x00;
+        for (int i = 0; i < keyCount && i < 6; i++) {
+            report[2 + i] = keyCodes[i];
+        }
+        Log.d(TAG, "HID Report: " + bytesToHex(report));
+    }
 
     private void createAndSendReport(byte keyCode, byte modifier) {
         byte[] report = new byte[8];

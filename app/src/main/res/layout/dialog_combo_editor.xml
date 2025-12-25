@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#2a2a2a">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Create combo"
+        android:textColor="#ffffff"
+        android:textSize="18sp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Modifiers"
+        android:textColor="#cccccc"
+        android:textSize="14sp"
+        android:layout_marginBottom="4dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <CheckBox
+            android:id="@+id/ctrlCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ctrl"
+            android:textColor="#ffffff" />
+
+        <CheckBox
+            android:id="@+id/shiftCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Shift"
+            android:textColor="#ffffff" />
+
+        <CheckBox
+            android:id="@+id/altCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Alt"
+            android:textColor="#ffffff" />
+
+        <CheckBox
+            android:id="@+id/guiCheckbox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Win"
+            android:textColor="#ffffff" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Main key"
+        android:textColor="#cccccc"
+        android:textSize="14sp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="4dp" />
+
+    <Spinner
+        android:id="@+id/comboKeySpinner"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:background="#404040"
+        android:padding="4dp" />
+
+    <Button
+        android:id="@+id/addComboButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Save combo"
+        android:textColor="#ffffff"
+        android:background="#4CAF50"
+        android:layout_marginTop="16dp" />
+
+</LinearLayout>
