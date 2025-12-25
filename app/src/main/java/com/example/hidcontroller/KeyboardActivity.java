@@ -20,24 +20,16 @@ public class KeyboardActivity extends AppCompatActivity {
     private TextView keyboardStatus;
     private BluetoothHIDService hidService;
     private boolean isBound = false;
-    // Fn visual state (no HID effect yet)
     private boolean isFnActive = false;
-    // Combo row support
     private static final int MAX_COMBOS = 14;
     private Button[] comboSlots = new Button[MAX_COMBOS];
     private String[][] comboKeys = new String[MAX_COMBOS][];
     private static final String[] ALL_MAIN_KEYS = new String[] {
-            // Function keys
             "Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-            // Number row
             "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
-            // Q row
             "Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\",
-            // A row
             "Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter",
-            // Z row
             "Shift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Space",
-            // Bottom row / extras
             "Ctrl", "Alt", "GUI", "Menu", "Back"
     };
 
@@ -48,6 +40,7 @@ public class KeyboardActivity extends AppCompatActivity {
         keyboardStatus = findViewById(R.id.keyboardStatus);
         bindAllKeys();
         bindComboRow();
+        loadCombos();
         logToStatus("Keyboard initialized");
         Intent serviceIntent = new Intent(this, BluetoothHIDService.class);
         bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
@@ -262,7 +255,6 @@ public class KeyboardActivity extends AppCompatActivity {
         showComboEditorForIndex(index);
     }
 
-    // For now, still uses preset combos; later you’ll replace with full dialog.
     private void showComboEditorForIndex(int index) {
         android.app.AlertDialog.Builder builder =
                 new android.app.AlertDialog.Builder(this);
@@ -309,6 +301,7 @@ public class KeyboardActivity extends AppCompatActivity {
 
             String[] combo = parts.toArray(new String[0]);
             comboKeys[index] = combo;
+            saveCombos();
 
             Button slot = comboSlots[index];
             if (slot != null) {
@@ -324,6 +317,48 @@ public class KeyboardActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    private void saveCombos() {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("combos", MODE_PRIVATE);
+        android.content.SharedPreferences.Editor e = prefs.edit();
+        for (int i = 0; i < MAX_COMBOS; i++) {
+            String key = "slot_" + i;
+            if (comboKeys[i] == null) {
+                e.remove(key);
+            } else {
+                // Join labels with a separator that never appears in labels
+                e.putString(key, String.join(";", comboKeys[i]));
+            }
+        }
+        e.apply();
+    }
+
+    private void loadCombos() {
+        android.content.SharedPreferences prefs =
+                getSharedPreferences("combos", MODE_PRIVATE);
+
+        for (int i = 0; i < MAX_COMBOS; i++) {
+            String stored = prefs.getString("slot_" + i, null);
+            if (stored == null || stored.isEmpty()) {
+                comboKeys[i] = null;
+                if (comboSlots[i] != null) {
+                    comboSlots[i].setText("");
+                    comboSlots[i].setVisibility(View.GONE);
+                }
+                continue;
+            }
+
+            String[] parts = stored.split(";");
+            comboKeys[i] = parts;
+
+            Button slot = comboSlots[i];
+            if (slot != null) {
+                slot.setText(String.join("+", parts));
+                slot.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+
     private void clearComboSlot(int index) {
         comboKeys[index] = null;
         Button slot = comboSlots[index];
@@ -332,6 +367,7 @@ public class KeyboardActivity extends AppCompatActivity {
             slot.setVisibility(View.GONE);
         }
         logToStatus("Cleared combo slot " + (index + 1));
+        saveCombos();   // <- ensure this is here
     }
 
     // ---------------- Service binding + lifecycle ----------------
