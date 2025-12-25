@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HID Controller</string>
+
+    <!-- Main Activity -->
+    <string name="keyboard_mode">Keyboard Mode</string>
+    <string name="touchpad_mode">Touchpad Mode</string>
+    <string name="media_controls">Media Controls</string>
+    <string name="presentation_mode">Presentation Mode</string>
+    <string name="custom_layouts">Custom Layouts</string>
+
+    <!-- Status Messages -->
+    <string name="initializing">Initializing...</string>
+    <string name="connecting">Connecting to device...</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="permissions_denied">Permissions denied. App may not work.</string>
+
+    <!-- Errors -->
+    <string name="bluetooth_not_supported">Bluetooth not supported on this device</string>
+    <string name="hid_api_not_available">Bluetooth HID API not available</string>
+</resources>
