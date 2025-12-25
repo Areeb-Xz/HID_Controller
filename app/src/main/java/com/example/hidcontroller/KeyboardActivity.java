@@ -24,6 +24,8 @@ public class KeyboardActivity extends AppCompatActivity {
     private static final int MAX_COMBOS = 14;
     private Button[] comboSlots = new Button[MAX_COMBOS];
     private String[][] comboKeys = new String[MAX_COMBOS][];
+    private boolean isShiftLatched = false;
+    private java.util.Map<Button, String> baseLabels = new java.util.HashMap<>();
     private static final String[] ALL_MAIN_KEYS = new String[] {
             "Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
             "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
@@ -107,7 +109,7 @@ public class KeyboardActivity extends AppCompatActivity {
         bindKey(R.id.keyQuote, "'");
         bindKey(R.id.keyEnter, "Enter");
         // Z row
-        bindKey(R.id.keyShiftLeft, "Shift");
+        bindShiftKey(R.id.keyShiftLeft);
         bindKey(R.id.keyZ, "Z");
         bindKey(R.id.keyX, "X");
         bindKey(R.id.keyC, "C");
@@ -118,7 +120,7 @@ public class KeyboardActivity extends AppCompatActivity {
         bindKey(R.id.keyComma, ",");
         bindKey(R.id.keyPeriod, ".");
         bindKey(R.id.keySlash, "/");
-        bindKey(R.id.keyShiftRight, "Shift");
+        bindShiftKey(R.id.keyShiftRight);
         // Bottom row
         bindKey(R.id.keyCtrlLeft, "Ctrl");
         bindFnKey(R.id.keyFn);           // Fn is special: no HID code
@@ -134,6 +136,7 @@ public class KeyboardActivity extends AppCompatActivity {
         Button b = findViewById(viewId);
         if (b == null) return;
 
+        baseLabels.put(b, label);
         b.setOnTouchListener((v, event) -> {
             int action = event.getAction();
             if (action == MotionEvent.ACTION_DOWN) {
@@ -170,24 +173,38 @@ public class KeyboardActivity extends AppCompatActivity {
 
     private void onKeyUp(String label) {
         logToStatus("Key UP: " + label);
-
-        // Fn has no direct HID representation
+        Log.d(TAG, "onKeyUp label=" + label + " shiftLatched=" + isShiftLatched);
         if ("Fn".equals(label)) return;
-
         if (hidService == null || !hidService.isConnected()) {
             logToStatus("Not connected to device");
             return;
         }
-
         int code = HIDKeyCode.getHIDCode(label);
         if (code == 0x00) {
             Log.w(TAG, "Unknown HID label: " + label);
             return;
         }
-
-        // Single-key send; service maps label to HID using HIDKeyCode
         hidService.sendKeyPress(label);
-        Log.d(TAG, "Sent key via HID: " + label);
+
+        // force one‑shot shift
+        if (isShiftLatched && !label.equals("Shift")) {
+            Log.d(TAG, "Clearing Shift latch after key: " + label);
+            Log.d(TAG, "Auto-clear shift after: " + label);
+            isShiftLatched = false;
+            updateShiftButtonsUi();
+            refreshShiftSensitiveLabels();
+        }
+    }
+
+    private void bindShiftKey(int viewId) {
+        Button b = findViewById(viewId);
+        if (b == null) return;
+        baseLabels.put(b, "Shift");
+        b.setOnClickListener(v -> {
+            isShiftLatched = !isShiftLatched;
+            updateShiftButtonsUi();
+            refreshShiftSensitiveLabels();
+        });
     }
 
     // ---------------- Combo row binding ----------------
@@ -373,6 +390,54 @@ public class KeyboardActivity extends AppCompatActivity {
     // ---------------- Service binding + lifecycle ----------------
     private void logToStatus(String message) {
         keyboardStatus.setText(message);
+    }
+
+    private void refreshShiftSensitiveLabels() {
+        for (java.util.Map.Entry<Button, String> entry : baseLabels.entrySet()) {
+            Button b = entry.getKey();
+            String base = entry.getValue();
+            String display = isShiftLatched ? shiftedCharFor(base) : base;
+            b.setText(display);
+        }
+    }
+
+    private String shiftedCharFor(String base) {
+        switch (base) {
+            case "1": return "!";
+            case "2": return "@";
+            case "3": return "#";
+            case "4": return "$";
+            case "5": return "%";
+            case "6": return "^";
+            case "7": return "&";
+            case "8": return "*";
+            case "9": return "(";
+            case "0": return ")";
+            case "-": return "_";
+            case "=": return "+";
+            case "[": return "{";
+            case "]": return "}";
+            case "\\": return "|";
+            case ";": return ":";
+            case "'": return "\"";
+            case ",": return "<";
+            case ".": return ">";
+            case "/": return "?";
+            default:
+                // For letters: show uppercase when Shift is on
+                if (base.length() == 1 && Character.isLetter(base.charAt(0))) {
+                    return base.toUpperCase();
+                }
+                return base;
+        }
+    }
+
+    private void updateShiftButtonsUi() {
+        int color = isShiftLatched ? 0xFF008080 : 0xFF404040;
+        Button left  = findViewById(R.id.keyShiftLeft);
+        Button right = findViewById(R.id.keyShiftRight);
+        if (left != null)  left.setBackgroundColor(color);
+        if (right != null) right.setBackgroundColor(color);
     }
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
