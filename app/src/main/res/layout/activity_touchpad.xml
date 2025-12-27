@@ -12,15 +12,40 @@
         android:layout_width="match_parent"
         android:layout_height="32dp" />
 
-    <!-- Status Text -->
-    <TextView
-        android:id="@+id/touchpadStatus"
+    <!-- Top Bar: Status Text (Left) + Settings Button (Right) -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Touchpad Ready"
-        android:textSize="14sp"
-        android:textColor="#b0b0b0"
-        android:layout_marginBottom="8dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Status Text: Pushed to left -->
+        <TextView
+            android:id="@+id/touchpadStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Touchpad Ready"
+            android:textSize="14sp"
+            android:textColor="#b0b0b0" />
+
+        <!-- Settings Button: Pushed to right -->
+        <ImageButton
+            android:id="@+id/btnTouchpadSetting"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/settings_icon"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/settings"
+            android:scaleType="centerInside"
+            android:padding="12dp"
+            tools:ignore="SpeakableTextPresentCheck" />
+
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="8dp" />
 
     <!-- Top row: left / right click buttons -->
     <LinearLayout

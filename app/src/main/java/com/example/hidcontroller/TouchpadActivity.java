@@ -20,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity;
 public class TouchpadActivity extends AppCompatActivity {
 
     private static final String TAG = "TouchpadActivity";
-
     private TextView touchpadStatus;
     private View touchArea;
     private View scrollStrip;
@@ -28,6 +27,7 @@ public class TouchpadActivity extends AppCompatActivity {
     private Button btnRightClick;
     private ImageButton btnScrollUp;
     private ImageButton btnScrollDown;
+    private ImageButton btnTouchpadSetting;
 
     @Nullable
     private BluetoothHIDService hidService;
@@ -36,30 +36,28 @@ public class TouchpadActivity extends AppCompatActivity {
     private float lastX = 0f;
     private float lastY = 0f;
     private float lastScrollY = 0f;
-
     // Tap and drag fields
     private boolean isDragging = false;
     private long downTime = 0L;
     private float downX = 0f;
     private float downY = 0f;
     private boolean moved = false;
-
     // Tap detection fields
     private float tapDownX = 0f;
     private float tapDownY = 0f;
     private long tapDownTime = 0L;
-
+    // Sensitivity Multipliers (loaded from settings)
+    private float touchpadSensitivity = 1.0f;
+    private float scrollSensitivity = 1.0f;
     private static final int MOVEMENT_THRESHOLD = 1;   // Lower threshold for better responsiveness
     private static final int SCROLL_MULTIPLIER = 3;
     private static final int DRAG_START_MS = 250;      // Hold for 250ms to start drag
     private static final int DRAG_SLOP_PX = 20;        // Allow small movement while initiating drag
     private static final int TAP_TIMEOUT_MS = 180;     // Tap must complete within 180ms
     private static final int TAP_SLOP_PX = 20;         // Tap movement tolerance
-
     // Enhanced sensitivity system for better responsiveness
     private static final float SENSITIVITY_CURVE = 1.2f;  // Acceleration multiplier for small movements
-    private static final float MIN_SEND_DELTA = 0.3f;     // Minimum delta before sending (sub-pixel tracking)
-
+    private static final float MIN_SEND_DELTA = 0.5f;     // Minimum delta before sending (sub-pixel tracking)
     // Accumulated fractional movement for precision
     private float accumulatedDeltaX = 0f;
     private float accumulatedDeltaY = 0f;
@@ -94,6 +92,7 @@ public class TouchpadActivity extends AppCompatActivity {
         btnRightClick = findViewById(R.id.btnRightClick);
         btnScrollUp = findViewById(R.id.btnScrollUp);
         btnScrollDown = findViewById(R.id.btnScrollDown);
+        btnTouchpadSetting = findViewById(R.id.btnTouchpadSetting);
 
         touchpadStatus.setText("Connecting to service...");
 
@@ -103,7 +102,23 @@ public class TouchpadActivity extends AppCompatActivity {
         setupTouchpadUI();
         setupControlButtons();
 
+        // Load initial sensitivity settings
+        loadSensitivitySettings();
+
         Log.d(TAG, "Activity created");
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh settings when returning from Settings screen
+        loadSensitivitySettings();
+    }
+
+    private void loadSensitivitySettings() {
+        touchpadSensitivity = TouchpadSettingsActivity.getTouchpadSensitivityMultiplier(this);
+        scrollSensitivity = TouchpadSettingsActivity.getScrollSensitivityMultiplier(this);
+        Log.d(TAG, "Loaded Sensitivity: Touch=" + touchpadSensitivity + " Scroll=" + scrollSensitivity);
     }
 
     /**
@@ -161,6 +176,10 @@ public class TouchpadActivity extends AppCompatActivity {
                     // Raw deltas with precision
                     float rawDeltaX = currentX - lastX;
                     float rawDeltaY = currentY - lastY;
+
+                    // Apply user-configured sensitivity multiplier
+                    rawDeltaX *= touchpadSensitivity;
+                    rawDeltaY *= touchpadSensitivity;
 
                     // Accumulate fractional deltas for sub-pixel precision
                     accumulatedDeltaX += rawDeltaX;
@@ -261,8 +280,12 @@ public class TouchpadActivity extends AppCompatActivity {
                     if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
                         if (hidService != null && hidService.isConnected()) {
                             // Inverted: swipe down = scroll down (positive), swipe up = scroll up (negative)
-                            // Reduced speed: divide by 2
                             int direction = dy > 0 ? SCROLL_MULTIPLIER : -SCROLL_MULTIPLIER;
+
+                            // Apply sensitivity setting
+                            direction = (int) (direction * scrollSensitivity);
+
+                            // Reduce speed: divide by 2
                             hidService.sendMouseScroll(direction / 2);
                             logToStatus(direction > 0 ? "Scrolling down" : "Scrolling up");
                         }
@@ -281,6 +304,12 @@ public class TouchpadActivity extends AppCompatActivity {
 
     @SuppressLint("MissingPermission")
     private void setupControlButtons() {
+        // SETTINGS BUTTON
+        btnTouchpadSetting.setOnClickListener(v -> {
+            Intent intent = new Intent(TouchpadActivity.this, TouchpadSettingsActivity.class);
+            startActivity(intent);
+        });
+
         // LEFT CLICK
         btnLeftClick.setOnClickListener(v -> {
             if (hidService != null && hidService.isConnected()) {

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="#1a1a1a">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="32dp" />
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Touchpad Settings"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="#ffffff"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Touchpad Sensitivity Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="32dp">
+
+        <!-- Label -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Touchpad Sensitivity"
+                android:textSize="16sp"
+                android:textColor="#b0b0b0" />
+
+            <TextView
+                android:id="@+id/tvTouchpadValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10"
+                android:textSize="16sp"
+                android:textColor="#32b8c6"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp" />
+        </LinearLayout>
+
+        <!-- SeekBar -->
+        <SeekBar
+            android:id="@+id/seekBarTouchpadSensitivity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="20"
+            android:progress="10"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Help text -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="0 = Slow (0.5x) | 10 = Normal (1.0x) | 20 = Fast (2.0x)"
+            android:textSize="12sp"
+            android:textColor="#707070"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#3a3a3a"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Scroll Sensitivity Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="32dp">
+
+        <!-- Label -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Scroll Sensitivity"
+                android:textSize="16sp"
+                android:textColor="#b0b0b0" />
+
+            <TextView
+                android:id="@+id/tvScrollValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="10"
+                android:textSize="16sp"
+                android:textColor="#32b8c6"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp" />
+        </LinearLayout>
+
+        <!-- SeekBar -->
+        <SeekBar
+            android:id="@+id/seekBarScrollSensitivity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="20"
+            android:progress="10"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Help text -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="0 = Slow (0.5x) | 10 = Normal (1.0x) | 20 = Fast (2.0x)"
+            android:textSize="12sp"
+            android:textColor="#707070"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+
+    <!-- Info section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#2a2a2a"
+        android:padding="12dp"
+        android:layout_marginTop="0dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="💡 Tips"
+            android:textSize="14sp"
+            android:textColor="#32b8c6"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="• Increase touchpad sensitivity for snappier cursor movement\n• Adjust scroll sensitivity to match your preference\n• Changes are saved automatically"
+            android:textSize="12sp"
+            android:textColor="#b0b0b0"
+            android:lineSpacingExtra="4dp" />
+
+    </LinearLayout>
+
+</LinearLayout>

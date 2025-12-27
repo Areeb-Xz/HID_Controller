@@ -47,6 +47,9 @@
             android:name=".TouchpadActivity" />
         <activity
             android:name=".ModeSelectActivity" />
+        <activity
+            android:name=".TouchpadSettingsActivity"
+            android:exported="false" />
         <service
             android:name=".BluetoothHIDService"
             android:enabled="true"

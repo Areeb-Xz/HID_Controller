@@ -19,4 +19,5 @@
     <!-- Errors -->
     <string name="bluetooth_not_supported">Bluetooth not supported on this device</string>
     <string name="hid_api_not_available">Bluetooth HID API not available</string>
+    <string name="settings">Settings</string>
 </resources>
