@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
+
 public class BluetoothHIDService extends Service {
 
     private static final String TAG = "BluetoothHIDService";

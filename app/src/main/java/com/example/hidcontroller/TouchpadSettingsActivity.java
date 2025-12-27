@@ -13,7 +13,6 @@ public class TouchpadSettingsActivity extends AppCompatActivity {
     private static final String PREF_FILE = "touchpad_prefs";
     private static final String PREF_TOUCHPAD_SENSITIVITY = "touchpad_sensitivity";
     private static final String PREF_SCROLL_SENSITIVITY = "scroll_sensitivity";
-
     private SeekBar seekBarTouchpadSensitivity;
     private SeekBar seekBarScrollSensitivity;
     private TextView tvTouchpadValue;

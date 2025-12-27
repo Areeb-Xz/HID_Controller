@@ -28,23 +28,18 @@ public class KeyboardActivity extends AppCompatActivity {
     private static final int COLOR_NORMAL = 0xFF404040;
     private static final int COLOR_PRESSED = 0xFF606060;
     private static final int COLOR_SHIFT_ACTIVE = 0xFF008080;
-
     private TextView keyboardStatus;
     @Nullable
     private BluetoothHIDService hidService;
     private boolean isBound = false;
-
     private boolean isFnActive = false;
     private boolean isShiftLatched = false;
     private boolean isCapsLocked = false;
-
     private static final int MAX_COMBOS = 14;
     private Button[] comboSlots = new Button[MAX_COMBOS];
     private String[][] comboKeys = new String[MAX_COMBOS][];
-
     private Map<Button, String> baseLabels = new HashMap<>();
     private Handler handler = new Handler(Looper.getMainLooper());
-
     private static final String[] ALL_MAIN_KEYS = {
             "Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
             "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=",
@@ -55,7 +50,6 @@ public class KeyboardActivity extends AppCompatActivity {
     };
 
     // ================ Service binding ================
-
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -75,7 +69,6 @@ public class KeyboardActivity extends AppCompatActivity {
     };
 
     // ================ Lifecycle ================
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -93,7 +86,6 @@ public class KeyboardActivity extends AppCompatActivity {
     }
 
     // ================ Key binding ================
-
     @SuppressLint("ClickableViewAccessibility")
     private void bindAllKeys() {
         // Function row
@@ -279,7 +271,6 @@ public class KeyboardActivity extends AppCompatActivity {
     }
 
     // ================ Key callbacks ================
-
     private void onKeyDown(String label) {
         Log.d(TAG, "Key DOWN: " + label);
     }
@@ -378,7 +369,6 @@ public class KeyboardActivity extends AppCompatActivity {
     }
 
     // ================ Shift & Caps UI ================
-
     private void updateShiftButtonsUi() {
         int color = isShiftLatched ? COLOR_SHIFT_ACTIVE : COLOR_NORMAL;
         Button left = findViewById(R.id.keyShiftLeft);
@@ -448,7 +438,6 @@ public class KeyboardActivity extends AppCompatActivity {
     }
 
     // ================ Combo row ================
-
     private void bindComboRow() {
         comboSlots[0] = findViewById(R.id.comboSlot1);
         comboSlots[1] = findViewById(R.id.comboSlot2);
@@ -617,7 +606,6 @@ public class KeyboardActivity extends AppCompatActivity {
     }
 
     // ================ Status + lifecycle ================
-
     private void logToStatus(String message) {
         keyboardStatus.setText(message);
         Log.d(TAG, message);
