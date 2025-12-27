@@ -22,14 +22,13 @@ import java.util.concurrent.Executor;
 public class BluetoothHIDService extends Service {
 
     private static final String TAG = "BluetoothHIDService";
-
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothHidDevice hidDevice;
     private BluetoothDevice connectedDevice;
     private boolean isConnected = false;
     private boolean isHIDRegistered = false;
-
     private Handler handler = new Handler(Looper.getMainLooper());
+    private static final byte MOUSE_BTN_LEFT = 0x01;
 
     public interface ConnectionCallback {
         void onConnected(BluetoothDevice device);
@@ -274,7 +273,6 @@ public class BluetoothHIDService extends Service {
     }
 
     // ===== KEYBOARD METHODS =====
-
     /**
      * Send a single key press (e.g., "A", "Enter", "F1")
      * Sends PRESS report, waits 10ms, then RELEASE report
@@ -408,11 +406,9 @@ public class BluetoothHIDService extends Service {
     }
 
     // ===== MOUSE METHODS =====
-
     /**
      * Send mouse movement (deltaX, deltaY in range [-127, 127])
      */
-    // Movement: [Buttons, X, Y, Wheel, Padding]
     public void sendMouseMovement(int deltaX, int deltaY) {
         if (!isConnected || connectedDevice == null || hidDevice == null) {
             Log.w(TAG, "sendMouseMovement: not connected");
@@ -484,6 +480,27 @@ public class BluetoothHIDService extends Service {
 
         boolean ok = hidDevice.sendReport(connectedDevice, 2, report);
         Log.d(TAG, "sendMouseScroll ok=" + ok + " wheel=" + wheel + " len=" + report.length);
+    }
+
+    public void sendMouseReport(byte buttons, int dxInt, int dyInt, int wheelInt) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseReport: not connected");
+            return;
+        }
+
+        byte dx = (byte) Math.max(-127, Math.min(127, dxInt));
+        byte dy = (byte) Math.max(-127, Math.min(127, dyInt));
+        byte wheel = (byte) Math.max(-127, Math.min(127, wheelInt));
+
+        // 5 bytes (Windows-friendly in your setup): [Buttons, X, Y, Wheel, Padding]
+        byte[] report = new byte[5];
+        report[0] = buttons;
+        report[1] = dx;
+        report[2] = dy;
+        report[3] = wheel;
+        report[4] = 0x00;
+
+        hidDevice.sendReport(connectedDevice, 2, report);
     }
 
     @Override

@@ -20,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity;
 public class TouchpadActivity extends AppCompatActivity {
 
     private static final String TAG = "TouchpadActivity";
-
     private TextView touchpadStatus;
     private View touchArea;
     private View scrollStrip;
@@ -36,15 +35,22 @@ public class TouchpadActivity extends AppCompatActivity {
     private float lastX = 0f;
     private float lastY = 0f;
     private float lastScrollY = 0f;
+    // Tap and drag fields
+    private boolean isDragging = false;
+    private long downTime = 0L;
     private float downX = 0f;
     private float downY = 0f;
-    private long downTime = 0L;
-
-    private static final int TAP_SLOP_PX = 20;      // adjust if needed
-    private static final int TAP_TIMEOUT_MS = 180;  // adjust if needed
     private boolean moved = false;
+    // Tap detection fields
+    private float tapDownX = 0f;
+    private float tapDownY = 0f;
+    private long tapDownTime = 0L;
     private static final int MOVEMENT_THRESHOLD = 2;
     private static final int SCROLL_MULTIPLIER = 3;
+    private static final int DRAG_START_MS = 250;      // Hold for 250ms to start drag
+    private static final int DRAG_SLOP_PX = 20;        // Allow small movement while initiating drag
+    private static final int TAP_TIMEOUT_MS = 180;     // Tap must complete within 180ms
+    private static final int TAP_SLOP_PX = 20;         // Tap movement tolerance
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -101,28 +107,59 @@ public class TouchpadActivity extends AppCompatActivity {
                 touchpadStatus.setText("Not connected to device");
                 return false;
             }
-
+            float currentX = event.getX();
+            float currentY = event.getY();
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     lastX = event.getX();
                     lastY = event.getY();
 
+                    // Record down state for tap and drag detection
                     downX = lastX;
                     downY = lastY;
                     downTime = event.getEventTime();
+                    tapDownX = lastX;
+                    tapDownY = lastY;
+                    tapDownTime = event.getEventTime();
+
+                    isDragging = false;
                     moved = false;
+                    logToStatus("Touch down");
                     break;
 
                 case MotionEvent.ACTION_MOVE:
-                    float currentX = event.getX();
-                    float currentY = event.getY();
 
-                    float deltaX = (currentX - lastX) * 1.5f;
-                    float deltaY = (currentY - lastY) * 1.5f;
+                    // Raw deltas for more precision (no multiplier)
+                    float deltaX = currentX - lastX;
+                    float deltaY = currentY - lastY;
 
+                    // Check if we should start dragging
+                    if (!isDragging && !moved) {
+                        boolean heldLongEnough = (event.getEventTime() - downTime) >= DRAG_START_MS;
+                        boolean smallMoveFromDown =
+                                Math.abs(currentX - downX) <= DRAG_SLOP_PX &&
+                                        Math.abs(currentY - downY) <= DRAG_SLOP_PX;
+
+                        if (heldLongEnough && smallMoveFromDown) {
+                            isDragging = true;
+                            hidService.sendMouseReport((byte) 0x01, 0, 0, 0); // Left button down
+                            logToStatus("Drag start");
+                        }
+                    }
+
+                    // Send movement (with button held if dragging)
                     if (Math.abs(deltaX) > MOVEMENT_THRESHOLD || Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
-                        hidService.sendMouseMovement((int) deltaX, (int) deltaY);
                         moved = true;
+
+                        if (isDragging) {
+                            // Move while holding left button
+                            hidService.sendMouseReport((byte) 0x01, (int) deltaX, (int) deltaY, 0);
+                            logToStatus("Drag X:" + (int)deltaX + " Y:" + (int)deltaY);
+                        } else {
+                            // Normal movement (no button)
+                            hidService.sendMouseMovement((int) deltaX, (int) deltaY);
+                            logToStatus("Move X:" + (int)deltaX + " Y:" + (int)deltaY);
+                        }
                     }
 
                     lastX = currentX;
@@ -131,20 +168,30 @@ public class TouchpadActivity extends AppCompatActivity {
 
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    long upTime = event.getEventTime();
-                    float upX = event.getX();
-                    float upY = event.getY();
+                    if (isDragging) {
+                        // Release button after drag
+                        hidService.sendMouseReport((byte) 0x00, 0, 0, 0);
+                        isDragging = false;
+                        logToStatus("Drag end");
+                    } else if (!moved) {
+                        // Detect single tap (no movement)
+                        long upTime = event.getEventTime();
+                        float upX = currentX;
+                        float upY = currentY;
 
-                    boolean quick = (upTime - downTime) <= TAP_TIMEOUT_MS;
-                    boolean smallMove = Math.abs(upX - downX) <= TAP_SLOP_PX && Math.abs(upY - downY) <= TAP_SLOP_PX;
+                        boolean quick = (upTime - tapDownTime) <= TAP_TIMEOUT_MS;
+                        boolean smallMove = Math.abs(upX - tapDownX) <= TAP_SLOP_PX &&
+                                Math.abs(upY - tapDownY) <= TAP_SLOP_PX;
 
-                    if (!moved && quick && smallMove) {
-                        hidService.sendMouseClick(1); // left click
-                        logToStatus("Tap click");
+                        if (quick && smallMove) {
+                            hidService.sendMouseClick(1); // Left click
+                            logToStatus("Tap click");
+                        }
                     }
 
                     lastX = 0f;
                     lastY = 0f;
+                    moved = false;
                     break;
             }
             return true;
@@ -166,9 +213,11 @@ public class TouchpadActivity extends AppCompatActivity {
                     // Only respond to vertical movement
                     if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
                         if (hidService != null && hidService.isConnected()) {
-                            int direction = dy > 0 ? -SCROLL_MULTIPLIER : SCROLL_MULTIPLIER;
-                            hidService.sendMouseScroll(direction);
-                            logToStatus(direction > 0 ? "Scrolling up" : "Scrolling down");
+                            // Inverted: swipe down = scroll down (positive), swipe up = scroll up (negative)
+                            int direction = dy > 0 ? SCROLL_MULTIPLIER : -SCROLL_MULTIPLIER;
+                            // Reduce speed: divide by 2
+                            hidService.sendMouseScroll(direction / 2);
+                            logToStatus(direction > 0 ? "Scrolling down" : "Scrolling up");
                         }
                     }
                     lastScrollY = y;
@@ -189,7 +238,7 @@ public class TouchpadActivity extends AppCompatActivity {
         btnLeftClick.setOnClickListener(v -> {
             if (hidService != null && hidService.isConnected()) {
                 hidService.sendMouseClick(1);
-                logToStatus("Left click");
+                logToStatus("Left click (button)");
                 Log.d(TAG, "Left click sent");
             } else {
                 touchpadStatus.setText("Not connected to device");
