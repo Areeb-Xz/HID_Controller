@@ -20,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity;
 public class TouchpadActivity extends AppCompatActivity {
 
     private static final String TAG = "TouchpadActivity";
+
     private TextView touchpadStatus;
     private View touchArea;
     private View scrollStrip;
@@ -35,22 +36,33 @@ public class TouchpadActivity extends AppCompatActivity {
     private float lastX = 0f;
     private float lastY = 0f;
     private float lastScrollY = 0f;
+
     // Tap and drag fields
     private boolean isDragging = false;
     private long downTime = 0L;
     private float downX = 0f;
     private float downY = 0f;
     private boolean moved = false;
+
     // Tap detection fields
     private float tapDownX = 0f;
     private float tapDownY = 0f;
     private long tapDownTime = 0L;
-    private static final int MOVEMENT_THRESHOLD = 2;
+
+    private static final int MOVEMENT_THRESHOLD = 1;   // Lower threshold for better responsiveness
     private static final int SCROLL_MULTIPLIER = 3;
     private static final int DRAG_START_MS = 250;      // Hold for 250ms to start drag
     private static final int DRAG_SLOP_PX = 20;        // Allow small movement while initiating drag
     private static final int TAP_TIMEOUT_MS = 180;     // Tap must complete within 180ms
     private static final int TAP_SLOP_PX = 20;         // Tap movement tolerance
+
+    // Enhanced sensitivity system for better responsiveness
+    private static final float SENSITIVITY_CURVE = 1.2f;  // Acceleration multiplier for small movements
+    private static final float MIN_SEND_DELTA = 0.3f;     // Minimum delta before sending (sub-pixel tracking)
+
+    // Accumulated fractional movement for precision
+    private float accumulatedDeltaX = 0f;
+    private float accumulatedDeltaY = 0f;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -95,43 +107,64 @@ public class TouchpadActivity extends AppCompatActivity {
     }
 
     /**
+     * Applies acceleration curve to raw delta for better responsiveness
+     * Small movements get amplified slightly, large movements capped smoothly
+     */
+    private float applyAccelerationCurve(float rawDelta) {
+        if (Math.abs(rawDelta) < 2f) {
+            // Small movements get amplified for snappier response
+            return rawDelta * SENSITIVITY_CURVE;
+        }
+        // Large movements scale naturally
+        return rawDelta;
+    }
+
+    /**
      * Setup touchpad with proper separation of touch area and scroll strip
-     * Left side: mouse movement
+     * Left side: mouse movement with tap and drag support
      * Right side: scrolling only
      */
     @SuppressLint("ClickableViewAccessibility")
     private void setupTouchpadUI() {
-        // MAIN TOUCHPAD AREA - left side for mouse movement
+        // MAIN TOUCHPAD AREA - left side for mouse movement, tap, and drag
         touchArea.setOnTouchListener((v, event) -> {
             if (hidService == null || !hidService.isConnected()) {
                 touchpadStatus.setText("Not connected to device");
                 return false;
             }
+
+            // Capture coordinates immediately for all cases
             float currentX = event.getX();
             float currentY = event.getY();
+
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
-                    lastX = event.getX();
-                    lastY = event.getY();
+                    lastX = currentX;
+                    lastY = currentY;
 
                     // Record down state for tap and drag detection
-                    downX = lastX;
-                    downY = lastY;
+                    downX = currentX;
+                    downY = currentY;
                     downTime = event.getEventTime();
-                    tapDownX = lastX;
-                    tapDownY = lastY;
+                    tapDownX = currentX;
+                    tapDownY = currentY;
                     tapDownTime = event.getEventTime();
 
                     isDragging = false;
                     moved = false;
+                    accumulatedDeltaX = 0f;
+                    accumulatedDeltaY = 0f;
                     logToStatus("Touch down");
                     break;
 
                 case MotionEvent.ACTION_MOVE:
+                    // Raw deltas with precision
+                    float rawDeltaX = currentX - lastX;
+                    float rawDeltaY = currentY - lastY;
 
-                    // Raw deltas for more precision (no multiplier)
-                    float deltaX = currentX - lastX;
-                    float deltaY = currentY - lastY;
+                    // Accumulate fractional deltas for sub-pixel precision
+                    accumulatedDeltaX += rawDeltaX;
+                    accumulatedDeltaY += rawDeltaY;
 
                     // Check if we should start dragging
                     if (!isDragging && !moved) {
@@ -147,19 +180,31 @@ public class TouchpadActivity extends AppCompatActivity {
                         }
                     }
 
-                    // Send movement (with button held if dragging)
-                    if (Math.abs(deltaX) > MOVEMENT_THRESHOLD || Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
+                    // Apply acceleration curve and threshold check
+                    float acceleratedDeltaX = applyAccelerationCurve(rawDeltaX);
+                    float acceleratedDeltaY = applyAccelerationCurve(rawDeltaY);
+
+                    // Only send if accumulated delta exceeds minimum
+                    if (Math.abs(accumulatedDeltaX) >= MIN_SEND_DELTA || Math.abs(accumulatedDeltaY) >= MIN_SEND_DELTA) {
                         moved = true;
+
+                        // Convert to integer, clamped to -127/127
+                        int sendDeltaX = Math.max(-127, Math.min(127, (int) acceleratedDeltaX));
+                        int sendDeltaY = Math.max(-127, Math.min(127, (int) acceleratedDeltaY));
 
                         if (isDragging) {
                             // Move while holding left button
-                            hidService.sendMouseReport((byte) 0x01, (int) deltaX, (int) deltaY, 0);
-                            logToStatus("Drag X:" + (int)deltaX + " Y:" + (int)deltaY);
+                            hidService.sendMouseReport((byte) 0x01, sendDeltaX, sendDeltaY, 0);
+                            logToStatus("Drag X:" + sendDeltaX + " Y:" + sendDeltaY);
                         } else {
                             // Normal movement (no button)
-                            hidService.sendMouseMovement((int) deltaX, (int) deltaY);
-                            logToStatus("Move X:" + (int)deltaX + " Y:" + (int)deltaY);
+                            hidService.sendMouseMovement(sendDeltaX, sendDeltaY);
+                            logToStatus("Move X:" + sendDeltaX + " Y:" + sendDeltaY);
                         }
+
+                        // Reset accumulated deltas after sending
+                        accumulatedDeltaX = 0f;
+                        accumulatedDeltaY = 0f;
                     }
 
                     lastX = currentX;
@@ -191,6 +236,8 @@ public class TouchpadActivity extends AppCompatActivity {
 
                     lastX = 0f;
                     lastY = 0f;
+                    accumulatedDeltaX = 0f;
+                    accumulatedDeltaY = 0f;
                     moved = false;
                     break;
             }
@@ -214,8 +261,8 @@ public class TouchpadActivity extends AppCompatActivity {
                     if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
                         if (hidService != null && hidService.isConnected()) {
                             // Inverted: swipe down = scroll down (positive), swipe up = scroll up (negative)
+                            // Reduced speed: divide by 2
                             int direction = dy > 0 ? SCROLL_MULTIPLIER : -SCROLL_MULTIPLIER;
-                            // Reduce speed: divide by 2
                             hidService.sendMouseScroll(direction / 2);
                             logToStatus(direction > 0 ? "Scrolling down" : "Scrolling up");
                         }
