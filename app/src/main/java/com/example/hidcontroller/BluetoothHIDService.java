@@ -5,14 +5,19 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.BluetoothHidDevice;
+import android.bluetooth.BluetoothHidDeviceAppSdpSettings;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import java.util.Set;
+import java.util.concurrent.Executor;
 
 public class BluetoothHIDService extends Service {
 
@@ -22,6 +27,9 @@ public class BluetoothHIDService extends Service {
     private BluetoothHidDevice hidDevice;
     private BluetoothDevice connectedDevice;
     private boolean isConnected = false;
+    private boolean isHIDRegistered = false;
+
+    private Handler handler = new Handler(Looper.getMainLooper());
 
     public interface ConnectionCallback {
         void onConnected(BluetoothDevice device);
@@ -30,7 +38,7 @@ public class BluetoothHIDService extends Service {
 
     private ConnectionCallback currentCallback;
 
-    // ----- Profile listener (JUST set hidDevice) -----
+    // ----- Profile listener -----
     private final BluetoothProfile.ServiceListener hidProfileListener =
             new BluetoothProfile.ServiceListener() {
                 @Override
@@ -38,7 +46,7 @@ public class BluetoothHIDService extends Service {
                     if (profile == BluetoothProfile.HID_DEVICE) {
                         hidDevice = (BluetoothHidDevice) proxy;
                         Log.d(TAG, "HID Device profile connected");
-                        // NO registerApp yet – connection only
+                        registerHIDApp();
                     }
                 }
 
@@ -46,6 +54,7 @@ public class BluetoothHIDService extends Service {
                 public void onServiceDisconnected(int profile) {
                     if (profile == BluetoothProfile.HID_DEVICE) {
                         hidDevice = null;
+                        isHIDRegistered = false;
                         Log.d(TAG, "HID Device profile disconnected");
                     }
                 }
@@ -86,6 +95,74 @@ public class BluetoothHIDService extends Service {
         return binder;
     }
 
+    // ----- Register HID App -----
+    private void registerHIDApp() {
+        if (hidDevice == null) {
+            Log.e(TAG, "Cannot register: hidDevice is null");
+            return;
+        }
+
+        if (isHIDRegistered) {
+            Log.d(TAG, "HID app already registered");
+            return;
+        }
+
+        try {
+            byte[] descriptor = getKeyboardDescriptor();
+
+            BluetoothHidDeviceAppSdpSettings sdp = new BluetoothHidDeviceAppSdpSettings(
+                    "HID Controller",
+                    "Android HID Keyboard/Mouse",
+                    "HID Controller",
+                    (byte) 0x04,  // SUBCLASS_COMBO
+                    descriptor
+            );
+
+            Executor executor = ContextCompat.getMainExecutor(this);
+
+            boolean registered = hidDevice.registerApp(sdp, null, null, executor, hidCallback);
+            Log.d(TAG, "registerApp() returned: " + registered);
+            isHIDRegistered = registered;
+
+            if (!registered) {
+                Log.e(TAG, "Failed to register HID app");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error registering HID app: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Standard USB HID Keyboard Report Descriptor
+     */
+    private byte[] getKeyboardDescriptor() {
+        return new byte[]{
+                (byte) 0x05, (byte) 0x01,        // Usage Page (Generic Desktop)
+                (byte) 0x09, (byte) 0x06,        // Usage (Keyboard)
+                (byte) 0xa1, (byte) 0x01,        // Collection (Application)
+                (byte) 0x05, (byte) 0x07,        // Usage Page (Keyboard/Keypad)
+                (byte) 0x19, (byte) 0xe0,        // Usage Minimum (Keyboard Left Control)
+                (byte) 0x29, (byte) 0xe7,        // Usage Maximum (Keyboard Right GUI)
+                (byte) 0x15, (byte) 0x00,        // Logical Minimum (0)
+                (byte) 0x25, (byte) 0x01,        // Logical Maximum (1)
+                (byte) 0x75, (byte) 0x01,        // Report Size (1 bit)
+                (byte) 0x95, (byte) 0x08,        // Report Count (8 = modifiers)
+                (byte) 0x81, (byte) 0x02,        // Input (Data, Variable, Absolute)
+                (byte) 0x95, (byte) 0x01,        // Report Count (1)
+                (byte) 0x75, (byte) 0x08,        // Report Size (8 bits)
+                (byte) 0x81, (byte) 0x01,        // Input (Constant) = reserved
+                (byte) 0x95, (byte) 0x06,        // Report Count (6 keys)
+                (byte) 0x75, (byte) 0x08,        // Report Size (8 bits each)
+                (byte) 0x15, (byte) 0x00,        // Logical Minimum (0)
+                (byte) 0x25, (byte) 0x65,        // Logical Maximum (101)
+                (byte) 0x05, (byte) 0x07,        // Usage Page (Keyboard/Keypad)
+                (byte) 0x19, (byte) 0x00,        // Usage Minimum
+                (byte) 0x29, (byte) 0x65,        // Usage Maximum
+                (byte) 0x81, (byte) 0x00,        // Input (Data, Array, Absolute)
+                (byte) 0xc0                      // End Collection
+        };
+    }
+
     // ----- Paired devices -----
     public BluetoothDevice[] getPairedDevices() {
         if (bluetoothAdapter == null) return new BluetoothDevice[0];
@@ -111,6 +188,13 @@ public class BluetoothHIDService extends Service {
             if (currentCallback != null) currentCallback.onError(device, "HID profile not ready");
             return;
         }
+
+        if (!isHIDRegistered) {
+            Log.e(TAG, "HID app not registered yet");
+            if (currentCallback != null) currentCallback.onError(device, "HID not registered");
+            return;
+        }
+
         boolean started = hidDevice.connect(device);
         Log.d(TAG, "hidDevice.connect() started=" + started);
     }
@@ -150,60 +234,144 @@ public class BluetoothHIDService extends Service {
         if (hidDevice != null && connectedDevice != null) {
             hidDevice.disconnect(connectedDevice);
         }
+
         isConnected = false;
         connectedDevice = null;
     }
 
-    // ----- Mouse APIs -----
-    public void sendMouseMovement(int deltaX, int deltaY) {
+    // ===== KEYBOARD METHODS =====
+
+    /**
+     * Send a single key press (e.g., "A", "Enter", "F1")
+     * Sends PRESS report, waits 10ms, then RELEASE report
+     */
+    public void sendKeyPress(String key) {
         if (!isConnected || connectedDevice == null || hidDevice == null) {
-            Log.w(TAG, "sendMouseMovement: not connected");
+            Log.w(TAG, "sendKeyPress: not connected");
             return;
         }
-        byte buttons = 0x00;
-        byte dx = (byte) deltaX;
-        byte dy = (byte) deltaY;
-        byte wheel = 0x00;
-        byte[] report = new byte[]{buttons, dx, dy, wheel};
-        Log.d(TAG, "sendMouseMovement report: " +
-                java.util.Arrays.toString(report));
-        hidDevice.sendReport(connectedDevice, 1, report);
-    }
 
-    public void sendMouseClick(int button) {
-        if (!isConnected || connectedDevice == null || hidDevice == null) {
-            Log.w(TAG, "sendMouseClick: not connected");
+        int hidCode = HIDKeyCode.getHIDCode(key);
+        if (hidCode == 0x00) {
+            Log.w(TAG, "sendKeyPress: unknown key: " + key);
             return;
         }
-        byte buttons = (byte) (1 << (button - 1));
-        byte dx = 0x00;
-        byte dy = 0x00;
-        byte wheel = 0x00;
-        byte[] report = new byte[]{buttons, dx, dy, wheel};
-        Log.d(TAG, "sendMouseClick report: " +
-                java.util.Arrays.toString(report));
-        hidDevice.sendReport(connectedDevice, 1, report);
+
+        // Build PRESS report: [modifiers(0), reserved, keyCode, 0, 0, 0, 0, 0]
+        byte[] reportPress = new byte[8];
+        reportPress[0] = 0x00;  // no modifiers
+        reportPress[1] = 0x00;  // reserved
+        reportPress[2] = (byte) hidCode;
+
+        Log.d(TAG, "sendKeyPress '" + key + "' code=0x" + String.format("%02X", hidCode) + " PRESS");
+        hidDevice.sendReport(connectedDevice, 1, reportPress);
+
+        // Use Handler.postDelayed() instead of Thread.sleep() - doesn't block UI!
+        handler.postDelayed(() -> {
+            if (isConnected && connectedDevice != null && hidDevice != null) {
+                // RELEASE report (all zeros)
+                byte[] reportRelease = new byte[8];
+                Log.d(TAG, "sendKeyPress '" + key + "' RELEASE");
+                hidDevice.sendReport(connectedDevice, 1, reportRelease);
+            }
+        }, 10);  // 10ms delay
     }
 
-    public void sendMouseScroll(int scrollAmount) {
+    /**
+     * Send a key combo like Shift+A or Ctrl+S
+     * Example: sendKeyPress(new String[]{"Shift", "A"})
+     * FIXED: Now sends PRESS + RELEASE reports with proper timing using Handler
+     */
+    public void sendKeyPress(String[] keys) {
         if (!isConnected || connectedDevice == null || hidDevice == null) {
-            Log.w(TAG, "sendMouseScroll: not connected");
+            Log.w(TAG, "sendKeyPress: not connected");
             return;
         }
-        byte buttons = 0x00;
-        byte dx = 0x00;
-        byte dy = 0x00;
-        byte wheel = (byte) scrollAmount;
-        byte[] report = new byte[]{buttons, dx, dy, wheel};
-        Log.d(TAG, "sendMouseScroll report: " +
-                java.util.Arrays.toString(report));
-        hidDevice.sendReport(connectedDevice, 1, report);
+
+        if (keys == null || keys.length == 0) {
+            Log.w(TAG, "sendKeyPress: empty key array");
+            return;
+        }
+
+        // Extract modifiers and the main key
+        byte modifiers = 0x00;
+        int mainKeyCode = 0x00;
+        for (String key : keys) {
+            switch (key) {
+                case "Ctrl":
+                    modifiers |= 0x01;  // LEFT_CTRL
+                    break;
+                case "Shift":
+                    modifiers |= 0x02;  // LEFT_SHIFT
+                    break;
+                case "Alt":
+                    modifiers |= 0x04;  // LEFT_ALT
+                    break;
+                case "GUI":
+                    modifiers |= 0x08;  // LEFT_GUI
+                    break;
+                default:
+                    mainKeyCode = HIDKeyCode.getHIDCode(key);
+                    break;
+            }
+        }
+
+        if (mainKeyCode == 0x00) {
+            Log.w(TAG, "sendKeyPress: could not find main key in: " + java.util.Arrays.toString(keys));
+            return;
+        }
+
+        // Build PRESS report: [modifiers, reserved, keyCode1-6]
+        byte[] reportPress = new byte[8];
+        reportPress[0] = modifiers;
+        reportPress[1] = 0x00;  // reserved
+        reportPress[2] = (byte) mainKeyCode;
+
+        Log.d(TAG, "sendKeyPress combo " + java.util.Arrays.toString(keys)
+                + " modifiers=0x" + String.format("%02X", modifiers)
+                + " keyCode=0x" + String.format("%02X", mainKeyCode) + " PRESS");
+
+        // SEND PRESS REPORT
+        hidDevice.sendReport(connectedDevice, 1, reportPress);
+
+        // Use Handler.postDelayed() instead of Thread.sleep()
+        handler.postDelayed(() -> {
+            if (isConnected && connectedDevice != null && hidDevice != null) {
+                // RELEASE report (all zeros) - THIS IS THE CRITICAL FIX!
+                byte[] reportRelease = new byte[8];
+                Log.d(TAG, "sendKeyPress combo RELEASE");
+                hidDevice.sendReport(connectedDevice, 1, reportRelease);
+            }
+        }, 10);  // 10ms delay
     }
 
-    public void sendKeyPress(int keyCode) { /* TODO: implement later */ }
-    public void sendKeyPress(String key) { /* TODO */ }
-    public void sendKeyPress(String[] keys) { /* TODO */ }
+    /**
+     * Send by HID code (for advanced use)
+     */
+    public void sendKeyPress(int keyCode) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendKeyPress: not connected");
+            return;
+        }
 
+        // PRESS
+        byte[] reportPress = new byte[8];
+        reportPress[0] = 0x00;  // no modifiers
+        reportPress[1] = 0x00;  // reserved
+        reportPress[2] = (byte) keyCode;
+
+        Log.d(TAG, "sendKeyPress 0x" + String.format("%02X", keyCode) + " PRESS");
+        hidDevice.sendReport(connectedDevice, 1, reportPress);
+
+        // RELEASE with Handler
+        handler.postDelayed(() -> {
+            if (isConnected && connectedDevice != null && hidDevice != null) {
+                byte[] reportRelease = new byte[8];
+                Log.d(TAG, "sendKeyPress 0x" + String.format("%02X", keyCode) + " RELEASE");
+                hidDevice.sendReport(connectedDevice, 1, reportRelease);
+            }
+        }, 10);
+    }
 
     @Override
     public void onDestroy() {

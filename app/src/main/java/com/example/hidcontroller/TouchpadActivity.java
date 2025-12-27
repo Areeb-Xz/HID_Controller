@@ -1,5 +1,7 @@
 package com.example.hidcontroller;
 
+import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -12,175 +14,31 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class TouchpadActivity extends AppCompatActivity {
 
     private static final String TAG = "TouchpadActivity";
-    // Service reference
-    private BluetoothHIDService hidService;
-    private boolean isBound = false;
-    // UI components
+
+    private TextView touchpadStatus;
     private View touchArea;
     private View scrollStrip;
     private Button btnLeftClick;
     private Button btnRightClick;
     private ImageButton btnScrollUp;
     private ImageButton btnScrollDown;
-    private TextView statusText;
-    // Touch tracking
+
+    @Nullable
+    private BluetoothHIDService hidService;
+    private boolean isBound = false;
+
     private float lastX = 0f;
     private float lastY = 0f;
     private float lastScrollY = 0f;
+
     private static final int MOVEMENT_THRESHOLD = 2;
     private static final int SCROLL_MULTIPLIER = 3;
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_touchpad);
-        Log.d(TAG, "TouchpadActivity created");
-
-        initializeUI();
-        bindToHIDService();
-    }
-
-    // ---------- UI setup ----------
-    private void initializeUI() {
-        touchArea = findViewById(R.id.touchArea);
-        scrollStrip = findViewById(R.id.scrollStrip);
-        btnLeftClick = findViewById(R.id.btnLeftClick);
-        btnRightClick = findViewById(R.id.btnRightClick);
-        btnScrollUp = findViewById(R.id.btnScrollUp);
-        btnScrollDown = findViewById(R.id.btnScrollDown);
-        statusText = findViewById(R.id.touchpadStatus);
-
-        touchArea.setOnTouchListener(this::onTouchAreaEvent);
-
-        btnLeftClick.setOnClickListener(v -> onLeftClickPressed());
-        btnRightClick.setOnClickListener(v -> onRightClickPressed());
-
-        btnScrollUp.setOnClickListener(v -> onScrollUp());
-        btnScrollDown.setOnClickListener(v -> onScrollDown());
-
-        scrollStrip.setOnTouchListener((v, event) -> {
-            float y = event.getY();
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    lastScrollY = y;
-                    return true;
-                case MotionEvent.ACTION_MOVE:
-                    float dy = y - lastScrollY;
-                    if (Math.abs(dy) > MOVEMENT_THRESHOLD &&
-                            hidService != null && hidService.isConnected()) {
-                        int direction = dy < 0 ? SCROLL_MULTIPLIER : -SCROLL_MULTIPLIER;
-                        hidService.sendMouseScroll(direction);
-                        logToStatus(direction > 0 ? "↑ Scrolling up" : "↓ Scrolling down");
-                        lastScrollY = y;
-                    }
-                    return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    return true;
-            }
-            return false;
-        });
-
-        logToStatus("Touchpad initialized. Waiting for connection...");
-    }
-
-    // ---------- Touchpad movement ----------
-    private boolean onTouchAreaEvent(View v, MotionEvent event) {
-        float x = event.getX();
-        float y = event.getY();
-
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                lastX = x;
-                lastY = y;
-                logToStatus("Touchpad active");
-                return true;
-
-            case MotionEvent.ACTION_MOVE:
-                int deltaX = (int) (x - lastX);
-                int deltaY = (int) (y - lastY);
-                if (Math.abs(deltaX) > MOVEMENT_THRESHOLD ||
-                        Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
-                    sendMouseMovement(deltaX, deltaY);
-                    lastX = x;
-                    lastY = y;
-                }
-                return true;
-
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                logToStatus("Touchpad ready");
-                return true;
-        }
-        return false;
-    }
-
-    private void sendMouseMovement(int deltaX, int deltaY) {
-        if (hidService == null || !hidService.isConnected()) {
-            logToStatus("⚠ Not connected to device");
-            return;
-        }
-        Log.d(TAG, "Mouse move: deltaX=" + deltaX + ", deltaY=" + deltaY);
-        logToStatus("Move: X=" + deltaX + ", Y=" + deltaY);
-        hidService.sendMouseMovement(deltaX, deltaY);
-    }
-
-    // ---------- Click / scroll actions ----------
-    private void onLeftClickPressed() {
-        if (hidService == null || !hidService.isConnected()) {
-            logToStatus("⚠ Not connected to device");
-            return;
-        }
-        Log.d(TAG, "Left click pressed");
-        logToStatus("Left click");
-        hidService.sendMouseClick(0x01);
-    }
-
-    private void onRightClickPressed() {
-        if (hidService == null || !hidService.isConnected()) {
-            logToStatus("⚠ Not connected to device");
-            return;
-        }
-        Log.d(TAG, "Right click pressed");
-        logToStatus("Right click");
-        hidService.sendMouseClick(0x02);
-    }
-
-    private void onScrollUp() {
-        if (hidService == null || !hidService.isConnected()) {
-            logToStatus("⚠ Not connected to device");
-            return;
-        }
-        Log.d(TAG, "Scroll up");
-        logToStatus("↑ Scrolling up");
-        hidService.sendMouseScroll(SCROLL_MULTIPLIER);
-    }
-
-    private void onScrollDown() {
-        if (hidService == null || !hidService.isConnected()) {
-            logToStatus("⚠ Not connected to device");
-            return;
-        }
-        Log.d(TAG, "Scroll down");
-        logToStatus("↓ Scrolling down");
-        hidService.sendMouseScroll(-SCROLL_MULTIPLIER);
-    }
-
-    private void logToStatus(String message) {
-        statusText.setText(message);
-        Log.d(TAG, message);
-    }
-
-    // ---------- Service binding ----------
-    private void bindToHIDService() {
-        Intent serviceIntent = new Intent(this, BluetoothHIDService.class);
-        bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
-    }
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -189,22 +47,174 @@ public class TouchpadActivity extends AppCompatActivity {
                     (BluetoothHIDService.LocalBinder) service;
             hidService = binder.getService();
             isBound = true;
-
-            if (hidService.isConnected()) {
-                logToStatus("✓ Connected to device. Ready!");
-            } else {
-                logToStatus("Service ready. No device connected.");
-            }
-            Log.d(TAG, "HID Service bound");
+            Log.d(TAG, "Service bound");
+            updateStatus();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             isBound = false;
             hidService = null;
-            logToStatus("⚠ HID Service disconnected");
+            Log.d(TAG, "Service disconnected");
         }
     };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_touchpad);
+
+        touchpadStatus = findViewById(R.id.touchpadStatus);
+        touchArea = findViewById(R.id.touchArea);
+        scrollStrip = findViewById(R.id.scrollStrip);
+        btnLeftClick = findViewById(R.id.btnLeftClick);
+        btnRightClick = findViewById(R.id.btnRightClick);
+        btnScrollUp = findViewById(R.id.btnScrollUp);
+        btnScrollDown = findViewById(R.id.btnScrollDown);
+
+        touchpadStatus.setText("Connecting to service...");
+
+        Intent serviceIntent = new Intent(this, BluetoothHIDService.class);
+        bindService(serviceIntent, serviceConnection, BIND_AUTO_CREATE);
+
+        setupTouchpadUI();
+        setupControlButtons();
+
+        Log.d(TAG, "Activity created");
+    }
+
+    /**
+     * CORRECTED: Setup touchpad with proper separation of touch area and scroll strip
+     * Left side: mouse movement
+     * Right side: scrolling only
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void setupTouchpadUI() {
+        // MAIN TOUCHPAD AREA - left side (for mouse movement)
+        touchArea.setOnTouchListener((v, event) -> {
+            if (hidService == null || !hidService.isConnected()) {
+                touchpadStatus.setText("Not connected to device");
+                return false;
+            }
+
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastX = event.getX();
+                    lastY = event.getY();
+                    break;
+
+                case MotionEvent.ACTION_MOVE:
+                    float currentX = event.getX();
+                    float currentY = event.getY();
+                    float deltaX = (currentX - lastX) * 1.5f;
+                    float deltaY = (currentY - lastY) * 1.5f;
+
+                    if (Math.abs(deltaX) > MOVEMENT_THRESHOLD || Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
+                        // X = horizontal, Y = vertical (correct axes)
+                        hidService.sendMouseMovement((int) deltaX, (int) deltaY);
+                        lastX = currentX;
+                        lastY = currentY;
+                        logToStatus("Moving: X=" + (int)deltaX + " Y=" + (int)deltaY);
+                    }
+                    break;
+
+                case MotionEvent.ACTION_UP:
+                    lastX = 0f;
+                    lastY = 0f;
+                    break;
+            }
+            return true;
+        });
+
+        // SCROLL STRIP - right side (for scrolling only)
+        scrollStrip.setOnTouchListener((v, event) -> {
+            float y = event.getY();
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastScrollY = y;
+                    logToStatus("Scroll mode");
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    float dy = y - lastScrollY;
+                    // Only respond to vertical movement
+                    if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
+                        if (hidService != null && hidService.isConnected()) {
+                            int direction = dy > 0 ? -SCROLL_MULTIPLIER : SCROLL_MULTIPLIER;
+                            hidService.sendMouseScroll(direction);
+                            logToStatus(direction > 0 ? "Scrolling up" : "Scrolling down");
+                            lastScrollY = y;
+                        }
+                    }
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    logToStatus("Ready");
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    @SuppressLint("MissingPermission")
+    private void setupControlButtons() {
+        btnLeftClick.setOnClickListener(v -> {
+            if (hidService != null && hidService.isConnected()) {
+                hidService.sendMouseClick(1);
+                logToStatus("Left click");
+                Log.d(TAG, "Left click sent");
+            } else {
+                touchpadStatus.setText("Not connected to device");
+            }
+        });
+
+        btnRightClick.setOnClickListener(v -> {
+            if (hidService != null && hidService.isConnected()) {
+                hidService.sendMouseClick(2);
+                logToStatus("Right click");
+                Log.d(TAG, "Right click sent");
+            } else {
+                touchpadStatus.setText("Not connected to device");
+            }
+        });
+
+        btnScrollUp.setOnClickListener(v -> {
+            if (hidService != null && hidService.isConnected()) {
+                hidService.sendMouseScroll(SCROLL_MULTIPLIER);
+                logToStatus("Scrolling up");
+                Log.d(TAG, "Scroll up sent");
+            } else {
+                touchpadStatus.setText("Not connected to device");
+            }
+        });
+
+        btnScrollDown.setOnClickListener(v -> {
+            if (hidService != null && hidService.isConnected()) {
+                hidService.sendMouseScroll(-SCROLL_MULTIPLIER);
+                logToStatus("Scrolling down");
+                Log.d(TAG, "Scroll down sent");
+            } else {
+                touchpadStatus.setText("Not connected to device");
+            }
+        });
+    }
+
+    private void logToStatus(String message) {
+        touchpadStatus.setText(message);
+        Log.d(TAG, message);
+    }
+
+    private void updateStatus() {
+        if (hidService == null || !hidService.isConnected()) {
+            touchpadStatus.setText("Not connected");
+        } else {
+            BluetoothDevice device = hidService.getConnectedDevice();
+            @SuppressLint("MissingPermission") String deviceName = device != null && device.getName() != null ?
+                    device.getName() : "Unknown Device";
+            touchpadStatus.setText("Connected to: " + deviceName);
+        }
+    }
 
     @Override
     protected void onDestroy() {
@@ -213,12 +223,14 @@ public class TouchpadActivity extends AppCompatActivity {
             unbindService(serviceConnection);
             isBound = false;
         }
-        Log.d(TAG, "onDestroy()");
+        Log.d(TAG, "Activity destroyed");
     }
 
     @Override
     public void onBackPressed() {
-        logToStatus("Returning to main screen");
         super.onBackPressed();
+        if (hidService != null) {
+            hidService.disconnect();
+        }
     }
 }

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#1a1a1a">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="32dp" />
+
+    <!-- Title -->
+    <TextView
+        android:id="@+id/titleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="SELECT MODE"
+        android:textAlignment="center"
+        android:textAllCaps="true"
+        android:textColor="#d6d7d7"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Status Bar -->
+    <TextView
+        android:id="@+id/modeStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Device connected. Choose a mode."
+        android:textColor="#d6d7d7"
+        android:textSize="16sp"
+        android:gravity="center"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Buttons -->
+    <Button
+        android:id="@+id/btnKeyboardMode"
+        style="@style/ModeButton"
+        android:text="⌨ Keyboard Mode" />
+
+    <Button
+        android:id="@+id/btnTouchpadMode"
+        style="@style/ModeButton"
+        android:text="🖱 Touchpad Mode" />
+
+    <Button
+        android:id="@+id/btnCustomMode"
+        style="@style/ModeButton.Disabled"
+        android:text="⭐ Custom Mode (coming soon)" />
+
+    <!-- Spacer -->
+    <TextView
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Footer Info -->
+    <TextView
+        android:id="@+id/footerText"
+        style="@style/FooterBar"
+        android:text="Bluetooth HID Controller v1.0" />
+
+</LinearLayout>
