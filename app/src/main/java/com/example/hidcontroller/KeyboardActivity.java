@@ -36,6 +36,7 @@ public class KeyboardActivity extends AppCompatActivity {
 
     private boolean isFnActive = false;
     private boolean isShiftLatched = false;
+    private boolean isCapsLocked = false;
 
     private static final int MAX_COMBOS = 14;
     private Button[] comboSlots = new Button[MAX_COMBOS];
@@ -143,7 +144,7 @@ public class KeyboardActivity extends AppCompatActivity {
         bindKey(R.id.keyBackslash, "\\");
 
         // A row
-        bindKey(R.id.keyCaps, "Caps");
+        bindCapsKey(R.id.keyCaps);
         bindKey(R.id.keyA, "A");
         bindKey(R.id.keyS, "S");
         bindKey(R.id.keyD, "D");
@@ -183,7 +184,7 @@ public class KeyboardActivity extends AppCompatActivity {
     }
 
     /**
-     * CRITICAL FIX: Get display text, check for shift mapping BEFORE sending
+     * Bind a regular key with proper color reset and shift label display
      */
     @SuppressLint("ClickableViewAccessibility")
     private void bindKey(int viewId, String baseLabel) {
@@ -204,7 +205,7 @@ public class KeyboardActivity extends AppCompatActivity {
 
                 // Get what the button CURRENTLY displays
                 String displayText = ((Button) v).getText().toString();
-                onKeyUp(baseLabel, displayText);  // Pass BOTH base and display
+                onKeyUp(baseLabel, displayText);
 
                 v.performClick();
                 return true;
@@ -214,6 +215,9 @@ public class KeyboardActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Handle Shift button press/release
+     */
     @SuppressLint("ClickableViewAccessibility")
     private void bindShiftKey(int viewId) {
         Button b = findViewById(viewId);
@@ -226,6 +230,37 @@ public class KeyboardActivity extends AppCompatActivity {
                 updateShiftButtonsUi();
                 refreshShiftSensitiveLabels();
                 logToStatus(isShiftLatched ? "Shift ON" : "Shift OFF");
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /**
+     * Caps Lock toggle:
+     * - Updates UI state (isCapsLocked)
+     * - Sends actual HID Caps key to the host so Shift becomes a true case-toggle:
+     *   Caps OFF: a -> a, Shift+a -> A
+     *   Caps ON : a -> A, Shift+A -> a
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void bindCapsKey(int viewId) {
+        Button b = findViewById(viewId);
+        if (b == null) return;
+
+        baseLabels.put(b, "Caps");
+        b.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                isCapsLocked = !isCapsLocked;
+
+                updateCapsButtonUi();
+                refreshShiftSensitiveLabels();
+                logToStatus(isCapsLocked ? "Caps ON" : "Caps OFF");
+
+                // IMPORTANT: tell the host to toggle Caps Lock too
+                if (hidService != null && hidService.isConnected()) {
+                    hidService.sendKeyPress("Caps");
+                }
                 return true;
             }
             return false;
@@ -247,12 +282,13 @@ public class KeyboardActivity extends AppCompatActivity {
 
     private void onKeyDown(String label) {
         Log.d(TAG, "Key DOWN: " + label);
-        logToStatus("Key DOWN: " + label);
     }
 
     /**
      * FIXED: Check for shift mapping BEFORE sending to device
-     * Pass BOTH the base label and what's displayed on the button
+     * Shift toggles case: Shift+a=A, Shift+A=a
+     * Shift+1=!, Shift+!=1, etc.
+     * Caps Lock affects letter case independently
      */
     private void onKeyUp(String baseLabel, String displayText) {
         Log.d(TAG, "onKeyUp baseLabel=" + baseLabel + " displayText=" + displayText + " shiftLatched=" + isShiftLatched);
@@ -265,16 +301,31 @@ public class KeyboardActivity extends AppCompatActivity {
             return;
         }
 
-        // CRITICAL FIX: Check if Shift is latched and this is a symbol
+        // CRITICAL FIX: Check if Shift is latched
         if (isShiftLatched) {
-            // The displayText might be "!" but we need to send Shift+"1"
+            // Check if this is a shifted symbol (e.g., "!" from "1")
             String baseKey = reverseShiftedChar(displayText);
 
             if (!baseKey.equals(displayText)) {
-                // It was shifted! Send Shift+baseKey
+                // It was a shifted symbol! Send Shift+baseKey
                 Log.d(TAG, "Shifted symbol: sending Shift + " + baseKey);
                 hidService.sendKeyPress(new String[]{"Shift", baseKey});
                 logToStatus("Sent: Shift + " + baseKey);
+
+                isShiftLatched = false;
+                updateShiftButtonsUi();
+                refreshShiftSensitiveLabels();
+                return;
+            }
+
+            // Check if this is a letter (A-Z)
+            // Shift toggles case: a->A, A->a
+            if (baseLabel.length() == 1 && Character.isLetter(baseLabel.charAt(0))) {
+                // Just send Shift + the letter key
+                // HID will toggle the case
+                Log.d(TAG, "Shifted letter: sending Shift + " + baseLabel);
+                hidService.sendKeyPress(new String[]{"Shift", baseLabel});
+                logToStatus("Sent: Shift + " + baseLabel);
 
                 isShiftLatched = false;
                 updateShiftButtonsUi();
@@ -322,11 +373,11 @@ public class KeyboardActivity extends AppCompatActivity {
             case ">": return ".";
             case "?": return "/";
             case "~": return "`";
-            default: return shifted;  // Not a shifted symbol
+            default: return shifted;
         }
     }
 
-    // ================ Shift UI ================
+    // ================ Shift & Caps UI ================
 
     private void updateShiftButtonsUi() {
         int color = isShiftLatched ? COLOR_SHIFT_ACTIVE : COLOR_NORMAL;
@@ -336,11 +387,34 @@ public class KeyboardActivity extends AppCompatActivity {
         if (right != null) right.setBackgroundColor(color);
     }
 
+    private void updateCapsButtonUi() {
+        Button caps = findViewById(R.id.keyCaps);
+        if (caps != null) {
+            caps.setBackgroundColor(isCapsLocked ? COLOR_SHIFT_ACTIVE : COLOR_NORMAL);
+        }
+    }
+
+    /**
+     * Refresh all key labels based on Shift and Caps states
+     * Letters: shown uppercase if (Caps XOR Shift) is true
+     * Numbers/symbols: show shifted version if Shift is latched
+     */
     private void refreshShiftSensitiveLabels() {
+        boolean lettersUpper = isCapsLocked ^ isShiftLatched;
+
         for (Map.Entry<Button, String> entry : baseLabels.entrySet()) {
             Button b = entry.getKey();
             String base = entry.getValue();
-            String display = isShiftLatched ? shiftedCharFor(base) : base;
+
+            String display;
+            if ("Shift".equals(base) || "Caps".equals(base)) {
+                display = base; // keep labels stable for modifier keys
+            } else if (base.length() == 1 && Character.isLetter(base.charAt(0))) {
+                display = lettersUpper ? base.toUpperCase() : base.toLowerCase();
+            } else {
+                display = isShiftLatched ? shiftedCharFor(base) : base;
+            }
+
             b.setText(display);
         }
     }
@@ -369,9 +443,6 @@ public class KeyboardActivity extends AppCompatActivity {
             case "/": return "?";
             case "`": return "~";
             default:
-                if (base.length() == 1 && Character.isLetter(base.charAt(0))) {
-                    return base.toUpperCase();
-                }
                 return base;
         }
     }
@@ -545,7 +616,7 @@ public class KeyboardActivity extends AppCompatActivity {
         saveCombos();
     }
 
-    // ================ Lifecycle ================
+    // ================ Status + lifecycle ================
 
     private void logToStatus(String message) {
         keyboardStatus.setText(message);
@@ -559,6 +630,7 @@ public class KeyboardActivity extends AppCompatActivity {
             unbindService(serviceConnection);
             isBound = false;
         }
+        Log.d(TAG, "Activity destroyed");
     }
 
     @Override

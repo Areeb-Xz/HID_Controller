@@ -108,7 +108,7 @@ public class BluetoothHIDService extends Service {
         }
 
         try {
-            byte[] descriptor = getKeyboardDescriptor();
+            byte[] descriptor = getKeyboardMouseDescriptor();
 
             BluetoothHidDeviceAppSdpSettings sdp = new BluetoothHidDeviceAppSdpSettings(
                     "HID Controller",
@@ -133,13 +133,17 @@ public class BluetoothHIDService extends Service {
     }
 
     /**
-     * Standard USB HID Keyboard Report Descriptor
+     * USB HID Descriptor for Keyboard + Mouse
+     * Report ID 1: Keyboard [Modifiers, Reserved, KeyCode1-6] = 8 bytes
+     * Report ID 2: Mouse [Buttons, X, Y, Wheel] = 5 bytes
      */
-    private byte[] getKeyboardDescriptor() {
+    private byte[] getKeyboardMouseDescriptor() {
         return new byte[]{
+                // ===== Keyboard (Report ID 1) =====
                 (byte) 0x05, (byte) 0x01,        // Usage Page (Generic Desktop)
                 (byte) 0x09, (byte) 0x06,        // Usage (Keyboard)
                 (byte) 0xa1, (byte) 0x01,        // Collection (Application)
+                (byte) 0x85, (byte) 0x01,        // Report ID (1)
                 (byte) 0x05, (byte) 0x07,        // Usage Page (Keyboard/Keypad)
                 (byte) 0x19, (byte) 0xe0,        // Usage Minimum (Keyboard Left Control)
                 (byte) 0x29, (byte) 0xe7,        // Usage Maximum (Keyboard Right GUI)
@@ -159,7 +163,37 @@ public class BluetoothHIDService extends Service {
                 (byte) 0x19, (byte) 0x00,        // Usage Minimum
                 (byte) 0x29, (byte) 0x65,        // Usage Maximum
                 (byte) 0x81, (byte) 0x00,        // Input (Data, Array, Absolute)
-                (byte) 0xc0                      // End Collection
+                (byte) 0xc0,                     // End Collection (Keyboard)
+
+                // ===== Mouse (Report ID 2) =====
+                (byte) 0x05, (byte) 0x01,        // Usage Page (Generic Desktop)
+                (byte) 0x09, (byte) 0x02,        // Usage (Mouse)
+                (byte) 0xa1, (byte) 0x01,        // Collection (Application)
+                (byte) 0x85, (byte) 0x02,        // Report ID (2)
+                (byte) 0x09, (byte) 0x01,        // Usage (Pointer)
+                (byte) 0xa1, (byte) 0x00,        // Collection (Physical)
+                (byte) 0x05, (byte) 0x09,        // Usage Page (Button)
+                (byte) 0x19, (byte) 0x01,        // Usage Minimum (Button 1)
+                (byte) 0x29, (byte) 0x03,        // Usage Maximum (Button 3)
+                (byte) 0x15, (byte) 0x00,        // Logical Minimum (0)
+                (byte) 0x25, (byte) 0x01,        // Logical Maximum (1)
+                (byte) 0x75, (byte) 0x01,        // Report Size (1 bit each)
+                (byte) 0x95, (byte) 0x03,        // Report Count (3 buttons)
+                (byte) 0x81, (byte) 0x02,        // Input (Data, Variable, Absolute)
+                (byte) 0x95, (byte) 0x01,        // Report Count (1)
+                (byte) 0x75, (byte) 0x05,        // Report Size (5 bits padding)
+                (byte) 0x81, (byte) 0x01,        // Input (Constant)
+                (byte) 0x05, (byte) 0x01,        // Usage Page (Generic Desktop)
+                (byte) 0x09, (byte) 0x30,        // Usage (X)
+                (byte) 0x09, (byte) 0x31,        // Usage (Y)
+                (byte) 0x09, (byte) 0x38,        // Usage (Wheel)
+                (byte) 0x15, (byte) 0x81,        // Logical Minimum (-127)
+                (byte) 0x25, (byte) 0x7f,        // Logical Maximum (127)
+                (byte) 0x75, (byte) 0x08,        // Report Size (8 bits each)
+                (byte) 0x95, (byte) 0x03,        // Report Count (3 = X, Y, Wheel)
+                (byte) 0x81, (byte) 0x06,        // Input (Data, Variable, Relative)
+                (byte) 0xc0,                     // End Collection (Physical)
+                (byte) 0xc0                      // End Collection (Mouse)
         };
     }
 
@@ -371,6 +405,85 @@ public class BluetoothHIDService extends Service {
                 hidDevice.sendReport(connectedDevice, 1, reportRelease);
             }
         }, 10);
+    }
+
+    // ===== MOUSE METHODS =====
+
+    /**
+     * Send mouse movement (deltaX, deltaY in range [-127, 127])
+     */
+    // Movement: [Buttons, X, Y, Wheel, Padding]
+    public void sendMouseMovement(int deltaX, int deltaY) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseMovement: not connected");
+            return;
+        }
+
+        byte dx = (byte) Math.max(-127, Math.min(127, deltaX));
+        byte dy = (byte) Math.max(-127, Math.min(127, deltaY));
+
+        byte[] report = new byte[5];
+        report[0] = 0x00;  // Buttons
+        report[1] = dx;    // X
+        report[2] = dy;    // Y
+        report[3] = 0x00;  // Wheel
+        report[4] = 0x00;  // Padding
+
+        boolean ok = hidDevice.sendReport(connectedDevice, 2, report);
+        Log.d(TAG, "sendMouseMovement ok=" + ok + " dx=" + dx + " dy=" + dy + " len=" + report.length);
+    }
+
+    // Click: [Buttons, 0, 0, 0, Padding]
+    public void sendMouseClick(int button) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseClick: not connected");
+            return;
+        }
+
+        byte buttonByte = (byte) (button == 1 ? 0x01 : button == 2 ? 0x02 : button == 3 ? 0x04 : 0x00);
+
+        byte[] press = new byte[5];
+        press[0] = buttonByte; // Buttons
+        press[1] = 0x00;
+        press[2] = 0x00;
+        press[3] = 0x00;
+        press[4] = 0x00;       // Padding
+
+        boolean ok = hidDevice.sendReport(connectedDevice, 2, press);
+        Log.d(TAG, "sendMouseClick PRESS ok=" + ok + " button=0x" + String.format("%02X", buttonByte));
+
+        handler.postDelayed(() -> {
+            if (isConnected && connectedDevice != null && hidDevice != null) {
+                byte[] release = new byte[5];
+                release[0] = 0x00; // Buttons up
+                release[1] = 0x00;
+                release[2] = 0x00;
+                release[3] = 0x00;
+                release[4] = 0x00; // Padding
+                hidDevice.sendReport(connectedDevice, 2, release);
+                Log.d(TAG, "sendMouseClick RELEASE");
+            }
+        }, 10);
+    }
+
+    // Scroll: [0, 0, 0, Wheel, Padding]
+    public void sendMouseScroll(int scrollAmount) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseScroll: not connected");
+            return;
+        }
+
+        byte wheel = (byte) Math.max(-127, Math.min(127, scrollAmount));
+
+        byte[] report = new byte[5];
+        report[0] = 0x00;  // Buttons
+        report[1] = 0x00;  // X
+        report[2] = 0x00;  // Y
+        report[3] = wheel; // Wheel
+        report[4] = 0x00;  // Padding
+
+        boolean ok = hidDevice.sendReport(connectedDevice, 2, report);
+        Log.d(TAG, "sendMouseScroll ok=" + ok + " wheel=" + wheel + " len=" + report.length);
     }
 
     @Override

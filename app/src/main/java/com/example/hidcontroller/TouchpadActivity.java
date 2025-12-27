@@ -36,15 +36,20 @@ public class TouchpadActivity extends AppCompatActivity {
     private float lastX = 0f;
     private float lastY = 0f;
     private float lastScrollY = 0f;
+    private float downX = 0f;
+    private float downY = 0f;
+    private long downTime = 0L;
 
+    private static final int TAP_SLOP_PX = 20;      // adjust if needed
+    private static final int TAP_TIMEOUT_MS = 180;  // adjust if needed
+    private boolean moved = false;
     private static final int MOVEMENT_THRESHOLD = 2;
     private static final int SCROLL_MULTIPLIER = 3;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            BluetoothHIDService.LocalBinder binder =
-                    (BluetoothHIDService.LocalBinder) service;
+            BluetoothHIDService.LocalBinder binder = (BluetoothHIDService.LocalBinder) service;
             hidService = binder.getService();
             isBound = true;
             Log.d(TAG, "Service bound");
@@ -84,13 +89,13 @@ public class TouchpadActivity extends AppCompatActivity {
     }
 
     /**
-     * CORRECTED: Setup touchpad with proper separation of touch area and scroll strip
+     * Setup touchpad with proper separation of touch area and scroll strip
      * Left side: mouse movement
      * Right side: scrolling only
      */
     @SuppressLint("ClickableViewAccessibility")
     private void setupTouchpadUI() {
-        // MAIN TOUCHPAD AREA - left side (for mouse movement)
+        // MAIN TOUCHPAD AREA - left side for mouse movement
         touchArea.setOnTouchListener((v, event) -> {
             if (hidService == null || !hidService.isConnected()) {
                 touchpadStatus.setText("Not connected to device");
@@ -101,24 +106,43 @@ public class TouchpadActivity extends AppCompatActivity {
                 case MotionEvent.ACTION_DOWN:
                     lastX = event.getX();
                     lastY = event.getY();
+
+                    downX = lastX;
+                    downY = lastY;
+                    downTime = event.getEventTime();
+                    moved = false;
                     break;
 
                 case MotionEvent.ACTION_MOVE:
                     float currentX = event.getX();
                     float currentY = event.getY();
+
                     float deltaX = (currentX - lastX) * 1.5f;
                     float deltaY = (currentY - lastY) * 1.5f;
 
                     if (Math.abs(deltaX) > MOVEMENT_THRESHOLD || Math.abs(deltaY) > MOVEMENT_THRESHOLD) {
-                        // X = horizontal, Y = vertical (correct axes)
                         hidService.sendMouseMovement((int) deltaX, (int) deltaY);
-                        lastX = currentX;
-                        lastY = currentY;
-                        logToStatus("Moving: X=" + (int)deltaX + " Y=" + (int)deltaY);
+                        moved = true;
                     }
+
+                    lastX = currentX;
+                    lastY = currentY;
                     break;
 
                 case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    long upTime = event.getEventTime();
+                    float upX = event.getX();
+                    float upY = event.getY();
+
+                    boolean quick = (upTime - downTime) <= TAP_TIMEOUT_MS;
+                    boolean smallMove = Math.abs(upX - downX) <= TAP_SLOP_PX && Math.abs(upY - downY) <= TAP_SLOP_PX;
+
+                    if (!moved && quick && smallMove) {
+                        hidService.sendMouseClick(1); // left click
+                        logToStatus("Tap click");
+                    }
+
                     lastX = 0f;
                     lastY = 0f;
                     break;
@@ -126,9 +150,10 @@ public class TouchpadActivity extends AppCompatActivity {
             return true;
         });
 
-        // SCROLL STRIP - right side (for scrolling only)
+        // SCROLL STRIP - right side for scrolling only
         scrollStrip.setOnTouchListener((v, event) -> {
             float y = event.getY();
+
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     lastScrollY = y;
@@ -137,15 +162,16 @@ public class TouchpadActivity extends AppCompatActivity {
 
                 case MotionEvent.ACTION_MOVE:
                     float dy = y - lastScrollY;
+
                     // Only respond to vertical movement
                     if (Math.abs(dy) > MOVEMENT_THRESHOLD) {
                         if (hidService != null && hidService.isConnected()) {
                             int direction = dy > 0 ? -SCROLL_MULTIPLIER : SCROLL_MULTIPLIER;
                             hidService.sendMouseScroll(direction);
                             logToStatus(direction > 0 ? "Scrolling up" : "Scrolling down");
-                            lastScrollY = y;
                         }
                     }
+                    lastScrollY = y;
                     return true;
 
                 case MotionEvent.ACTION_UP:
@@ -159,6 +185,7 @@ public class TouchpadActivity extends AppCompatActivity {
 
     @SuppressLint("MissingPermission")
     private void setupControlButtons() {
+        // LEFT CLICK
         btnLeftClick.setOnClickListener(v -> {
             if (hidService != null && hidService.isConnected()) {
                 hidService.sendMouseClick(1);
@@ -169,6 +196,7 @@ public class TouchpadActivity extends AppCompatActivity {
             }
         });
 
+        // RIGHT CLICK
         btnRightClick.setOnClickListener(v -> {
             if (hidService != null && hidService.isConnected()) {
                 hidService.sendMouseClick(2);
@@ -179,6 +207,7 @@ public class TouchpadActivity extends AppCompatActivity {
             }
         });
 
+        // SCROLL UP BUTTON
         btnScrollUp.setOnClickListener(v -> {
             if (hidService != null && hidService.isConnected()) {
                 hidService.sendMouseScroll(SCROLL_MULTIPLIER);
@@ -189,6 +218,7 @@ public class TouchpadActivity extends AppCompatActivity {
             }
         });
 
+        // SCROLL DOWN BUTTON
         btnScrollDown.setOnClickListener(v -> {
             if (hidService != null && hidService.isConnected()) {
                 hidService.sendMouseScroll(-SCROLL_MULTIPLIER);
@@ -210,9 +240,9 @@ public class TouchpadActivity extends AppCompatActivity {
             touchpadStatus.setText("Not connected");
         } else {
             BluetoothDevice device = hidService.getConnectedDevice();
-            @SuppressLint("MissingPermission") String deviceName = device != null && device.getName() != null ?
-                    device.getName() : "Unknown Device";
-            touchpadStatus.setText("Connected to: " + deviceName);
+            @SuppressLint("MissingPermission")
+            String deviceName = (device != null && device.getName() != null) ? device.getName() : "Unknown Device";
+            touchpadStatus.setText("Connected to " + deviceName);
         }
     }
 
