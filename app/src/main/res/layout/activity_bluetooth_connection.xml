@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -29,8 +30,9 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        tools:ignore="SpeakableTextPresentCheck">
 
         <LinearLayout
             android:id="@+id/deviceListContainer"
@@ -39,5 +41,17 @@
             android:orientation="vertical" />
 
     </ScrollView>
+
+    <!-- Spacer -->
+    <TextView
+        android:layout_width="1dp"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Footer Info -->
+    <TextView
+        android:id="@+id/footerText"
+        style="@style/FooterBar"
+        android:text="Bluetooth HID Controller v1.0" />
 
 </LinearLayout>

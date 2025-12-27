@@ -2,9 +2,9 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center_horizontal"
+    android:gravity="center_horizontal|center_vertical"
     android:orientation="vertical"
-    android:padding="8dp"
+    android:padding="16dp"
     android:background="#1a1a1a">
     <View
         android:layout_width="match_parent"
@@ -17,10 +17,9 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
         android:text="@string/app_name"
-
-        android:textColor="#d6d7d7"
         android:textAlignment="center"
         android:textAllCaps="true"
+        android:textColor="#d6d7d7"
         android:textSize="32sp"
         android:textStyle="bold" />
 
@@ -36,29 +35,11 @@
         android:textColor="#d6d7d7"
         android:textSize="16sp" />
 
-    <!-- Mode Buttons -->
-    <Button
-        android:id="@+id/keyboard_button"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginBottom="16dp"
-        android:text="⌨ Keyboard Mode"
-        android:textSize="18sp" />
-
-    <Button
-        android:id="@+id/touchpad_button"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginBottom="16dp"
-        android:text="🖱 Touchpad Mode"
-        android:textSize="18sp" />
-
-    <Button
-        android:id="@+id/settings_button"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:text="⚙ Settings"
-        android:textSize="18sp" />
+    <!-- Button -->
+        <Button
+            android:id="@+id/btnConnectDevice"
+            style="@style/ModeButton"
+            android:text="Connect to Device" />
 
     <!-- Spacer -->
     <TextView
@@ -68,11 +49,8 @@
 
     <!-- Footer Info -->
     <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
-        android:text="Bluetooth HID Controller v1.0"
-        android:textSize="12sp" />
+        android:id="@+id/footerText"
+        style="@style/FooterBar"
+        android:text="Bluetooth HID Controller v1.0" />
 
 </LinearLayout>

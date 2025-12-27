@@ -15,7 +15,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class BluetoothConnectionActivity extends AppCompatActivity {
     private static final String TAG = "BluetoothConnectionActivity";
-
     private LinearLayout deviceListContainer;
     private TextView statusText;
     private BluetoothHIDService hidService;
@@ -88,7 +87,7 @@ public class BluetoothConnectionActivity extends AppCompatActivity {
                 statusText.setText("Connected to: " + finalDevice.getName());
                 Log.d(TAG, "Selected device: " + finalDevice.getName());
 
-                startActivity(new Intent(BluetoothConnectionActivity.this, KeyboardActivity.class));
+                startActivity(new Intent(this, ModeSelectActivity.class));
                 finish();
             });
 

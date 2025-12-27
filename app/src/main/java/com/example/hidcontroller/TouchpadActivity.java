@@ -32,6 +32,9 @@ public class TouchpadActivity extends AppCompatActivity {
     private float lastY = 0f;
     private static final int MOVEMENT_THRESHOLD = 2;
     private static final int SCROLL_MULTIPLIER = 3;
+    private View scrollStrip;
+    private float lastScrollY;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,18 +55,39 @@ public class TouchpadActivity extends AppCompatActivity {
         btnScrollUp = findViewById(R.id.btnScrollUp);
         btnScrollDown = findViewById(R.id.btnScrollDown);
         statusText = findViewById(R.id.touchpadStatus);
+        scrollStrip = findViewById(R.id.scrollStrip);
 
         // Touch area listener
         touchArea.setOnTouchListener(this::onTouchAreaEvent);
-
         // Click buttons
         btnLeftClick.setOnClickListener(v -> onLeftClickPressed());
         btnRightClick.setOnClickListener(v -> onRightClickPressed());
-
         // Scroll buttons
         btnScrollUp.setOnClickListener(v -> onScrollUp());
         btnScrollDown.setOnClickListener(v -> onScrollDown());
-
+        // Scroll Strip
+        scrollStrip.setOnTouchListener((v, event) -> {
+            float y = event.getY();
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastScrollY = y;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float dy = y - lastScrollY;
+                    if (Math.abs(dy) > MOVEMENT_THRESHOLD &&
+                            hidService != null && hidService.isConnected()) {
+                        int direction = dy < 0 ? SCROLL_MULTIPLIER : -SCROLL_MULTIPLIER;
+                        hidService.sendMouseScroll(direction);
+                        logToStatus(direction > 0 ? "↑ Scrolling up" : "↓ Scrolling down");
+                        lastScrollY = y;
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    return true;
+            }
+            return false;
+        });
         logToStatus("Touchpad initialized. Waiting for connection...");
     }
 
@@ -104,8 +128,7 @@ public class TouchpadActivity extends AppCompatActivity {
         Log.d(TAG, "Mouse move: deltaX=" + deltaX + ", deltaY=" + deltaY);
         logToStatus("Move: X=" + deltaX + ", Y=" + deltaY);
 
-        // TODO: Uncomment after implementing mouse HID reports
-        // hidService.sendMouseMovement(deltaX, deltaY);
+        hidService.sendMouseMovement(deltaX, deltaY);
     }
 
     private void onLeftClickPressed() {
@@ -113,12 +136,10 @@ public class TouchpadActivity extends AppCompatActivity {
             logToStatus("⚠ Not connected to device");
             return;
         }
-
         Log.d(TAG, "Left click pressed");
         logToStatus("Left click");
 
-        // TODO: Uncomment after implementing mouse HID reports
-        // hidService.sendMouseClick(MouseButton.LEFT);
+        hidService.sendMouseClick(0x01);
     }
 
     private void onRightClickPressed() {
@@ -129,8 +150,7 @@ public class TouchpadActivity extends AppCompatActivity {
         Log.d(TAG, "Right click pressed");
         logToStatus("Right click");
 
-        // TODO: Uncomment after implementing mouse HID reports
-        // hidService.sendMouseClick(MouseButton.RIGHT);
+        hidService.sendMouseClick(0x02);
     }
 
     private void onScrollUp() {
@@ -138,12 +158,10 @@ public class TouchpadActivity extends AppCompatActivity {
             logToStatus("⚠ Not connected to device");
             return;
         }
-
         Log.d(TAG, "Scroll up");
         logToStatus("↑ Scrolling up");
 
-        // TODO: Uncomment after implementing mouse HID reports
-        // hidService.sendMouseScroll(SCROLL_MULTIPLIER);
+        hidService.sendMouseScroll(SCROLL_MULTIPLIER);
     }
 
     private void onScrollDown() {
@@ -155,8 +173,7 @@ public class TouchpadActivity extends AppCompatActivity {
         Log.d(TAG, "Scroll down");
         logToStatus("↓ Scrolling down");
 
-        // TODO: Uncomment after implementing mouse HID reports
-        // hidService.sendMouseScroll(-SCROLL_MULTIPLIER);
+        hidService.sendMouseScroll(-SCROLL_MULTIPLIER);
     }
 
     private void logToStatus(String message) {

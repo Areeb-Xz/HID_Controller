@@ -89,6 +89,7 @@
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
+            android:background="#3a3a3a"
             android:layout_weight="0.6"
             android:orientation="vertical"
             android:gravity="center_horizontal"
@@ -105,10 +106,10 @@
                 tools:ignore="TouchTargetSizeCheck" />
 
             <View
-                android:layout_width="3dp"
+                android:id="@+id/scrollStrip"
+                android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="1"
-                android:background="#b0b0b0" />
+                android:layout_weight="1"/>
 
             <ImageButton
                 android:id="@+id/btnScrollDown"

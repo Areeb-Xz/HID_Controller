@@ -16,4 +16,29 @@
     <style name="KeyButton.Small" parent="@style/KeyButton">
         <item name="android:textSize">10sp</item>
     </style>
+
+    <style name="ModeButton" parent="Widget.AppCompat.Button">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">#404040</item>
+        <item name="android:textColor">#ffffff</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:layout_marginBottom">16dp</item>
+    </style>
+
+    <style name="ModeButton.Disabled" parent="@style/ModeButton">
+        <item name="android:alpha">0.4</item>
+        <item name="android:clickable">false</item>
+        <item name="android:focusable">false</item>
+    </style>
+
+    <style name="FooterBar">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">#d6d7d7</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
 </resources>

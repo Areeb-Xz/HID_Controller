@@ -49,9 +49,10 @@
             android:label="Connect Device" />
 
         <activity
-            android:name=".TouchpadActivity"
+            android:name=".TouchpadActivity" />
 
-            />
+        <activity
+            android:name=".ModeSelectActivity" />
 
         <service
             android:name=".BluetoothHIDService"
