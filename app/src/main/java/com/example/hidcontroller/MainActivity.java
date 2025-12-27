@@ -32,15 +32,9 @@ import androidx.core.content.ContextCompat;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
-
     // Permission constants
     private static final int PERMISSION_REQUEST_CODE = 100;
-    private static final String[] REQUIRED_PERMISSIONS = {
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.CAMERA
-    };
-
+    private static final String[] REQUIRED_PERMISSIONS = {Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.CAMERA};
     private TextView statusTextView;
     private Button keyboardButton;
     private Button touchpadButton;
@@ -49,29 +43,20 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         // Load UI layout from activity_main.xml
         setContentView(R.layout.activity_main);
-
         Log.d(TAG, "MainActivity created");
-
         // Initialize UI components
         initializeUI();
-
         // Request permissions if needed
         requestRequiredPermissions();
     }
 
-    /**
-     * Initialize UI components (buttons, text views)
-     * Similar to findViewById() in traditional Java Swing
-     */
     private void initializeUI() {
         statusTextView = findViewById(R.id.status_text);
         keyboardButton = findViewById(R.id.keyboard_button);
         touchpadButton = findViewById(R.id.touchpad_button);
         settingsButton = findViewById(R.id.settings_button);
-
         // Set click listeners
         keyboardButton.setOnClickListener(v -> onKeyboardClicked());
         touchpadButton.setOnClickListener(v -> onTouchpadClicked());
@@ -80,12 +65,6 @@ public class MainActivity extends AppCompatActivity {
         updateStatusText("App initialized. Ready to connect.");
     }
 
-    /**
-     * Request runtime permissions
-     *
-     * In Android 6.0+ (API 23+), apps must ask for permissions at runtime,
-     * not just in AndroidManifest.xml
-     */
     private void requestRequiredPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {  // Android 12+
             boolean allPermissionsGranted = true;
@@ -97,7 +76,6 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
-
             if (!allPermissionsGranted) {
                 // Ask user for permissions
                 ActivityCompat.requestPermissions(
@@ -111,15 +89,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Callback when user responds to permission request
-     */
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions,
-                                           @NonNull int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
         if (requestCode == PERMISSION_REQUEST_CODE) {
             boolean allGranted = true;
 
@@ -129,7 +101,6 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
-
             if (allGranted) {
                 Log.d(TAG, "All permissions granted by user");
                 updateStatusText("Permissions granted. Ready to proceed.");
@@ -140,38 +111,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Keyboard button clicked
-     * In Phase 2, this will launch the keyboard screen
-     */
     private void onKeyboardClicked() {
         Log.d(TAG, "Keyboard button clicked");
         Intent intent = new Intent(MainActivity.this, KeyboardActivity.class);
         startActivity(intent);
     }
 
-    /**
-     * Touchpad button clicked
-     * In Phase 4, this will launch the touchpad screen
-     */
     private void onTouchpadClicked() {
         Log.d(TAG, "Touchpad button clicked");
-        updateStatusText("Touchpad mode selected (not yet implemented)");
-        // TODO: Start TouchpadActivity
+        Intent intent = new Intent(MainActivity.this, TouchpadActivity.class);
+        startActivity(intent);
     }
 
-    /**
-     * Settings button clicked
-     */
     private void onSettingsClicked() {
         Log.d(TAG, "Settings button clicked");
         Intent intent = new Intent(MainActivity.this, BluetoothConnectionActivity.class);
         startActivity(intent);
     }
 
-    /**
-     * Helper method to update status text
-     */
     private void updateStatusText(String message) {
         statusTextView.setText(message);
         Log.d(TAG, message);

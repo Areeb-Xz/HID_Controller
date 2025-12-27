@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- No color definitions needed -->
+    <style name="AppTheme" parent="@style/Theme.HID_Controller">
+        <item name="android:windowContentOverlay">@null</item>
     </style>
     <style name="KeyButton" parent="Widget.AppCompat.Button">
         <item name="android:layout_width">0dp</item>

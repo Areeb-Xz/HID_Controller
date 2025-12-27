@@ -1,10 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#111111"
-    android:padding="8dp">
+    android:padding="8dp"
+    android:background="#1a1a1a">
+
+    <!-- Spacer that will actually push content down -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="32dp" />
+
+    <!-- Status Text -->
+    <TextView
+        android:id="@+id/touchpadStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Touchpad Ready"
+        android:textSize="14sp"
+        android:textColor="#b0b0b0"
+        android:layout_marginBottom="8dp" />
 
     <!-- Top row: left / right click buttons -->
     <LinearLayout
@@ -19,9 +35,11 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:textColor="#d0e4ff"
+            android:text="Left Click"
+            android:textColor="#b0b0b0"
             android:background="@drawable/custom_border"
-            android:textAllCaps="false" />
+            android:textAllCaps="false"
+            tools:ignore="VisualLintButtonSize" />
 
         <View
             android:layout_width="8dp"
@@ -32,9 +50,11 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:textColor="#d0e4ff"
+            android:text="Right Click"
+            android:textColor="#b0b0b0"
             android:background="@drawable/custom_border"
-            android:textAllCaps="false" />
+            android:textAllCaps="false"
+            tools:ignore="VisualLintButtonSize" />
     </LinearLayout>
 
     <View
@@ -61,7 +81,8 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:layout_gravity="center"
-                android:src="@drawable/ic_mouse_outline"/>
+                android:src="@drawable/ic_mouse_outline"
+                android:contentDescription="Mouse icon" />
         </FrameLayout>
 
         <!-- Vertical scroll strip -->
@@ -79,22 +100,24 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:background="@android:color/transparent"
+                android:contentDescription="Scroll up"
                 android:src="@drawable/scroll_arrow_up"
-                />
+                tools:ignore="TouchTargetSizeCheck" />
 
             <View
                 android:layout_width="3dp"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="#1f1f1f"
-                android:color="#1f1f1f"/>
+                android:background="#b0b0b0" />
 
             <ImageButton
                 android:id="@+id/btnScrollDown"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:background="@android:color/transparent"
-                android:src="@drawable/scroll_arrow_down" />
+                android:contentDescription="Scroll down"
+                android:src="@drawable/scroll_arrow_down"
+                tools:ignore="TouchTargetSizeCheck" />
         </LinearLayout>
     </LinearLayout>
 
