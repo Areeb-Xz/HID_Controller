@@ -3,8 +3,8 @@ package com.example.hidcontroller;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothHidDevice;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothHidDevice;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
@@ -17,53 +17,60 @@ import java.util.Set;
 public class BluetoothHIDService extends Service {
 
     private static final String TAG = "BluetoothHIDService";
+
     private BluetoothAdapter bluetoothAdapter;
-    private BluetoothDevice connectedDevice;
     private BluetoothHidDevice hidDevice;
+    private BluetoothDevice connectedDevice;
     private boolean isConnected = false;
-    private ConnectionCallback currentCallback;
-    private final IBinder binder = new LocalBinder();
 
-    // HID Profile Listener
-    private BluetoothProfile.ServiceListener hidProfileListener = new BluetoothProfile.ServiceListener() {
-        @Override
-        public void onServiceConnected(int profile, BluetoothProfile proxy) {
-            if (profile == BluetoothProfile.HID_DEVICE) {
-                hidDevice = (BluetoothHidDevice) proxy;
-                Log.d(TAG, "HID Device profile connected");
-            }
-        }
-
-        @Override
-        public void onServiceDisconnected(int profile) {
-            if (profile == BluetoothProfile.HID_DEVICE) {
-                hidDevice = null;
-                Log.d(TAG, "HID Device profile disconnected");
-            }
-        }
-    };
-
-    // Connection callback interface
     public interface ConnectionCallback {
         void onConnected(BluetoothDevice device);
-        void onError(BluetoothDevice device, String message);
+        void onError(@Nullable BluetoothDevice device, String message);
     }
 
-    // Local binder
+    private ConnectionCallback currentCallback;
+
+    // ----- Profile listener (JUST set hidDevice) -----
+    private final BluetoothProfile.ServiceListener hidProfileListener =
+            new BluetoothProfile.ServiceListener() {
+                @Override
+                public void onServiceConnected(int profile, BluetoothProfile proxy) {
+                    if (profile == BluetoothProfile.HID_DEVICE) {
+                        hidDevice = (BluetoothHidDevice) proxy;
+                        Log.d(TAG, "HID Device profile connected");
+                        // NO registerApp yet – connection only
+                    }
+                }
+
+                @Override
+                public void onServiceDisconnected(int profile) {
+                    if (profile == BluetoothProfile.HID_DEVICE) {
+                        hidDevice = null;
+                        Log.d(TAG, "HID Device profile disconnected");
+                    }
+                }
+            };
+
+    // ----- Binder -----
     public class LocalBinder extends Binder {
         public BluetoothHIDService getService() {
             return BluetoothHIDService.this;
         }
     }
 
+    private final IBinder binder = new LocalBinder();
+
     @Override
     public void onCreate() {
         super.onCreate();
         Log.d(TAG, "Service created");
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
         if (bluetoothAdapter != null) {
-            bluetoothAdapter.getProfileProxy(this, hidProfileListener, BluetoothProfile.HID_DEVICE);
+            bluetoothAdapter.getProfileProxy(
+                    this,
+                    hidProfileListener,
+                    BluetoothProfile.HID_DEVICE
+            );
         }
     }
 
@@ -79,67 +86,130 @@ public class BluetoothHIDService extends Service {
         return binder;
     }
 
+    // ----- Paired devices -----
     public BluetoothDevice[] getPairedDevices() {
-        if (bluetoothAdapter == null) {
-            return new BluetoothDevice[0];
-        }
-
-        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
-        return pairedDevices.toArray(new BluetoothDevice[0]);
+        if (bluetoothAdapter == null) return new BluetoothDevice[0];
+        Set<BluetoothDevice> paired = bluetoothAdapter.getBondedDevices();
+        return paired.toArray(new BluetoothDevice[0]);
     }
 
-    public void connectToDevice(BluetoothDevice device, ConnectionCallback callback) {
-        Log.d(TAG, "Attempting to connect to device: " + device.getName());
+    // ----- Connect API -----
+    public void connectToDevice(@Nullable BluetoothDevice device, @Nullable ConnectionCallback callback) {
+        Log.d(TAG, "Attempting to connect to device: "
+                + (device != null ? device.getName() : "null"));
         currentCallback = callback;
 
         if (device == null) {
-            if (callback != null) {
-                callback.onError(null, "Device is null");
-            }
+            if (callback != null) callback.onError(null, "Device is null");
             return;
         }
 
         connectedDevice = device;
 
-        // TODO: Implement real HID host connection logic here
-        // For now, simulate successful connection
-        new Thread(() -> {
-            try {
-                Thread.sleep(1000); // Simulate connection delay
-                isConnected = true;
-
-                if (currentCallback != null) {
-                    currentCallback.onConnected(device);
-                    Log.d(TAG, "Connected to: " + device.getName());
-                }
-            } catch (InterruptedException e) {
-                Log.e(TAG, "Connection thread interrupted", e);
-                if (currentCallback != null) {
-                    currentCallback.onError(device, "Connection interrupted");
-                }
-            }
-        }).start();
+        if (hidDevice == null) {
+            Log.e(TAG, "HID profile not ready when trying to connect");
+            if (currentCallback != null) currentCallback.onError(device, "HID profile not ready");
+            return;
+        }
+        boolean started = hidDevice.connect(device);
+        Log.d(TAG, "hidDevice.connect() started=" + started);
     }
+
+    // ----- HID connection state callback -----
+    private final BluetoothHidDevice.Callback hidCallback =
+            new BluetoothHidDevice.Callback() {
+                @Override
+                public void onConnectionStateChanged(BluetoothDevice device, int state) {
+                    if (connectedDevice == null || !device.equals(connectedDevice)) return;
+
+                    if (state == BluetoothProfile.STATE_CONNECTED) {
+                        isConnected = true;
+                        Log.d(TAG, "HID connected to " + device.getName());
+                        if (currentCallback != null) currentCallback.onConnected(device);
+                    } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
+                        isConnected = false;
+                        Log.d(TAG, "HID disconnected from " + device.getName());
+                        if (currentCallback != null) {
+                            currentCallback.onError(device, "Disconnected");
+                        }
+                    }
+                }
+            };
 
     public boolean isConnected() {
         return isConnected;
     }
 
+    @Nullable
     public BluetoothDevice getConnectedDevice() {
         return connectedDevice;
     }
 
     public void disconnect() {
         Log.d(TAG, "Disconnecting from device");
+        if (hidDevice != null && connectedDevice != null) {
+            hidDevice.disconnect(connectedDevice);
+        }
         isConnected = false;
         connectedDevice = null;
     }
+
+    // ----- Mouse APIs -----
+    public void sendMouseMovement(int deltaX, int deltaY) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseMovement: not connected");
+            return;
+        }
+        byte buttons = 0x00;
+        byte dx = (byte) deltaX;
+        byte dy = (byte) deltaY;
+        byte wheel = 0x00;
+        byte[] report = new byte[]{buttons, dx, dy, wheel};
+        Log.d(TAG, "sendMouseMovement report: " +
+                java.util.Arrays.toString(report));
+        hidDevice.sendReport(connectedDevice, 1, report);
+    }
+
+    public void sendMouseClick(int button) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseClick: not connected");
+            return;
+        }
+        byte buttons = (byte) (1 << (button - 1));
+        byte dx = 0x00;
+        byte dy = 0x00;
+        byte wheel = 0x00;
+        byte[] report = new byte[]{buttons, dx, dy, wheel};
+        Log.d(TAG, "sendMouseClick report: " +
+                java.util.Arrays.toString(report));
+        hidDevice.sendReport(connectedDevice, 1, report);
+    }
+
+    public void sendMouseScroll(int scrollAmount) {
+        if (!isConnected || connectedDevice == null || hidDevice == null) {
+            Log.w(TAG, "sendMouseScroll: not connected");
+            return;
+        }
+        byte buttons = 0x00;
+        byte dx = 0x00;
+        byte dy = 0x00;
+        byte wheel = (byte) scrollAmount;
+        byte[] report = new byte[]{buttons, dx, dy, wheel};
+        Log.d(TAG, "sendMouseScroll report: " +
+                java.util.Arrays.toString(report));
+        hidDevice.sendReport(connectedDevice, 1, report);
+    }
+
+    public void sendKeyPress(int keyCode) { /* TODO: implement later */ }
+    public void sendKeyPress(String key) { /* TODO */ }
+    public void sendKeyPress(String[] keys) { /* TODO */ }
+
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "Service destroyed");
-        if (bluetoothAdapter != null) {
+        if (bluetoothAdapter != null && hidDevice != null) {
             bluetoothAdapter.closeProfileProxy(BluetoothProfile.HID_DEVICE, hidDevice);
         }
     }

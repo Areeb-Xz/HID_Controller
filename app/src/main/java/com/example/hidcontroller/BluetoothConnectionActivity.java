@@ -11,16 +11,21 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class BluetoothConnectionActivity extends AppCompatActivity {
+
     private static final String TAG = "BluetoothConnectionActivity";
+
     private LinearLayout deviceListContainer;
     private TextView statusText;
+
+    @Nullable
     private BluetoothHIDService hidService;
     private boolean isBound = false;
 
-    private ServiceConnection serviceConnection = new ServiceConnection() {
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             BluetoothHIDService.LocalBinder binder = (BluetoothHIDService.LocalBinder) service;
@@ -43,7 +48,6 @@ public class BluetoothConnectionActivity extends AppCompatActivity {
 
         deviceListContainer = findViewById(R.id.deviceListContainer);
         statusText = findViewById(R.id.connectionStatusText);
-
         statusText.setText("Loading paired devices...");
 
         Intent serviceIntent = new Intent(this, BluetoothHIDService.class);
@@ -58,7 +62,6 @@ public class BluetoothConnectionActivity extends AppCompatActivity {
         }
 
         BluetoothDevice[] pairedDevices = hidService.getPairedDevices();
-
         if (pairedDevices.length == 0) {
             statusText.setText("No paired devices found");
             return;
@@ -82,17 +85,45 @@ public class BluetoothConnectionActivity extends AppCompatActivity {
             deviceButton.setLayoutParams(params);
 
             final BluetoothDevice finalDevice = device;
-            deviceButton.setOnClickListener(v -> {
-                hidService.connectToDevice(finalDevice);
-                statusText.setText("Connected to: " + finalDevice.getName());
-                Log.d(TAG, "Selected device: " + finalDevice.getName());
-
-                startActivity(new Intent(this, ModeSelectActivity.class));
-                finish();
-            });
+            deviceButton.setOnClickListener(v -> connectTo(finalDevice));
 
             deviceListContainer.addView(deviceButton);
         }
+    }
+
+    private void connectTo(BluetoothDevice device) {
+        if (hidService == null) {
+            statusText.setText("Error: HID Service not available");
+            return;
+        }
+
+        statusText.setText("Connecting to: " + device.getName() + "...");
+        Log.d(TAG, "Selected device: " + device.getName());
+
+        hidService.connectToDevice(device, new BluetoothHIDService.ConnectionCallback() {
+            @Override
+            public void onConnected(BluetoothDevice device) {
+                runOnUiThread(() -> {
+                    statusText.setText("Connected to: " + device.getName());
+                    Intent i = new Intent(
+                            BluetoothConnectionActivity.this,
+                            ModeSelectActivity.class
+                    );
+                    i.putExtra("deviceName", device.getName());
+                    startActivity(i);
+                    finish();
+                });
+            }
+
+            @Override
+            public void onError(@Nullable BluetoothDevice device, String message) {
+                runOnUiThread(() -> {
+                    String name = (device != null) ? device.getName() : "device";
+                    statusText.setText("Failed to connect to " + name + ": " + message);
+                    Log.w(TAG, "Connection error for " + name + ": " + message);
+                });
+            }
+        });
     }
 
     @Override
