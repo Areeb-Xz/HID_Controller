@@ -6,6 +6,14 @@ This project implements a fully functional Bluetooth HID (Human Interface Device
 
 ![Project Status](https://img.shields.io/badge/status-active-success.svg) ![Platform](https://img.shields.io/badge/platform-Android-green.svg) ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
+## 📥 Download App
+
+[**⬇️ Download Latest APK (v1.0)**](https://github.com/yourusername/android-hid-controller/releases/latest)
+
+*Compatible with Android 9 and newer.*
+
+---
+
 ## 🌟 Key Features
 
 ### ⌨️ Full QWERTY Keyboard
@@ -35,7 +43,7 @@ This project implements a fully functional Bluetooth HID (Human Interface Device
 
 ---
 
-## 🛠️ Installation
+## 🛠️ Installation (For Developers)
 
 1. **Clone the Repository**
    ```bash
