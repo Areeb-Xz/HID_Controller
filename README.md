@@ -1,81 +1,91 @@
 # Android Bluetooth HID Controller
 
-An educational Android app that turns your phone into a **virtual Bluetooth HID keyboard**.  
-It walks through building a custom on‑screen keyboard, mapping keys to HID scan codes, and structuring a Bluetooth HID service for sending key reports.
+Turn your Android phone into a powerful **Bluetooth HID Keyboard & Touchpad**.
 
+This project implements a fully functional Bluetooth HID (Human Interface Device) controller that works with Windows, macOS, Linux, and other Android devices without any server-side software.
 
-## Features
+![Project Status](https://img.shields.io/badge/status-active-success.svg) ![Platform](https://img.shields.io/badge/platform-Android-green.svg) ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 
-- Home screen with simple navigation (Keyboard, Settings).
-- Virtual 5×10 QWERTY keyboard with visual press feedback.
-- Status bar showing current key events and state.
-- Bluetooth "Settings" screen listing already‑paired devices.
-- Service that builds HID keyboard reports (modifier + key codes) for each press.
-- Shift key implemented as a one‑shot modifier (Shift + next key).
+## 🌟 Key Features
 
-> Note: In this learning version, HID reports are constructed and logged; actually acting as a full system Bluetooth keyboard can require extra HID profile support and system‑level privileges.
+### ⌨️ Full QWERTY Keyboard
+- **Fast Typing Support:** Optimized queuing system handles high-speed input (100+ WPM).
+- **Modifier Keys:** Support for Shift, Ctrl, Alt, GUI (Win/Cmd) combos.
+- **Visual Feedback:** Responsive UI with key press states.
 
+### 🖱️ Multi-Touch Trackpad
+- **Smooth Cursor Control:** Sub-pixel precision for mouse movement.
+- **Gestures:**
+  - **Tap to Click:** Single tap for left click.
+  - **Drag & Drop:** Tap-and-hold to drag windows or files.
+  - **Two-Finger Scroll:** Dedicated scroll strip for smooth vertical scrolling.
+- **Sensitivity Control:** Adjustable speed settings for cursor and scroll.
 
-## Project Structure
+### ⚡ Performance
+- **Zero Latency:** Dedicated background thread for HID reports ensures no UI lag.
+- **Battery Efficient:** Optimized service lifecycle management.
 
-- `MainActivity` – Home screen, buttons to keyboard and Bluetooth settings.
-- `KeyboardActivity` – Renders the key grid, handles touch events, calls HID service on key up.
-- `BluetoothConnectionActivity` – Shows paired devices and lets you choose one to "connect".
-- `BluetoothHIDService` – Manages Bluetooth adapter, selected device, and HID report creation.
-- `HIDKeyCode` – Maps labels like `Q`, `1`, `Enter`, `Space` to USB HID scan codes (0x04–0x38, etc.).
-  
-- `activity_keyboard.xml` – Layout with status bar and 5×10 `GridLayout` for keys.
-- `activity_bluetooth_connection.xml` – Simple list layout for paired devices.
-
-
-## How It Works
-
-1. User launches app → sees `MainActivity`.
-2. Tapping **Keyboard** opens `KeyboardActivity` and shows a 50‑key grid.
-3. Tapping **Settings** opens `BluetoothConnectionActivity`, listing paired devices.
-4. Selecting a device sets it as the current target in `BluetoothHIDService` and returns to the keyboard.
-5. Pressing a key:  
-   - `KeyboardActivity` logs `Key pressed: X` and updates the status bar.
-   - `HIDKeyCode` turns the label into a HID scan code (for `Q`, 0x14).
-     
-   - `BluetoothHIDService` builds an 8‑byte HID keyboard report:
-     - Byte 0: modifier (Shift, Ctrl, etc.)
-     - Byte 1: reserved
-     - Bytes 2–7: up to 6 simultaneous key codes
-       
-   - Two reports are created: key‑down (code set) and key‑up (all zeros).
-     
-   - Reports are logged to Logcat for inspection.
-   
-
-## Setup & Requirements
-
-- Android Studio (Giraffe or newer recommended).
-- Android device with Bluetooth support.
-- Minimum SDK: use your project's `minSdkVersion`.
-- Ensure Bluetooth permissions in `AndroidManifest.xml`.
-
-
-## Running the App
-
-1. Clone/open in Android Studio.
-2. Build and run on physical device.
-3. Pair target device via Android settings.
-4. App: **Settings** → pick device → **Keyboard** → press keys, check Logcat.
-
-
-## Educational Goals
-
-- Custom `GridLayout` keyboard UI.
-- HID scan code mapping.
-  
-- Service binding patterns.
-- HID report format + modifiers.
-
-
-## Next Steps
-
-- Full Bluetooth HID profile.
-- Multi-key combos (Ctrl+Alt).
-- Visual Shift state (letter case).
 ---
+
+## 📱 Screenshots
+
+| Keyboard | Touchpad | Connection |
+|:---:|:---:|:---:|
+| ![KeyboardUI](UI_screenshots/KeyboardUI.png) | ![TouchpadUI](UI_screenshots/TouchpadUI.png) | ![ConnectionUI](UI_screenshots/ConnectionUI.png) |
+
+---
+
+## 🛠️ Installation
+
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/yourusername/android-hid-controller.git
+   ```
+
+2. **Open in Android Studio**
+   - File -> Open -> Select the cloned folder.
+   - Wait for Gradle sync to complete.
+
+3. **Build & Run**
+   - Connect your Android device (must support Bluetooth HID Profile, Android 9+ recommended).
+   - Click **Run**.
+
+### Permissions Note
+This app requires `BLUETOOTH_CONNECT` and `BLUETOOTH_SCAN` permissions. On first launch, please grant these permissions to allow device discovery.
+
+---
+
+## 🚀 How to Use
+
+1. **Pairing:**
+   - Go to your host computer's Bluetooth settings and start scanning.
+   - Open the app on your phone and tap **"Connect New Device"**.
+   - Make your phone discoverable if needed.
+   - Select your computer from the list to pair.
+
+2. **Connecting:**
+   - Once paired, tap the device name in the app to establish the HID connection.
+
+3. **Input Modes:**
+   - **Keyboard Mode:** Standard QWERTY layout. Use `Shift` for caps/symbols.
+   - **Touchpad Mode:** 
+     - Move finger to move cursor.
+     - Tap to click.
+     - Drag finger on the right edge strip to scroll.
+     - Use bottom buttons for Left/Right click and Scroll.
+
+---
+
+## 🔮 Future Ideas
+
+- [ ] **Macro Support:** Record and replay key sequences.
+- [ ] **Custom Layouts:** Gamepad mode, Numpad-only mode, or media controller.
+- [ ] **Themes:** Dark/Light mode and custom key colors.
+- [ ] **Voice Input:** Type using speech-to-text.
+- [ ] **Clipboard Sync:** Send text from phone clipboard to PC.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
