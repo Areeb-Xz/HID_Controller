@@ -8,7 +8,7 @@ This project implements a fully functional Bluetooth HID (Human Interface Device
 
 ## 📥 Download App
 
-[**⬇️ Download Latest APK (v1.0)**](https://github.com/yourusername/android-hid-controller/releases/latest)
+[**⬇️ Download Latest APK (v1.0)**](https://github.com/Areeb-Xz/HID_Controller/releases/latest)
 
 *Compatible with Android 9 and newer.*
 
