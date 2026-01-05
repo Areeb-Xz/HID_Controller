@@ -1,5 +1,6 @@
 package com.example.hidcontroller;
 
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -19,9 +20,8 @@ import androidx.core.content.ContextCompat;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
-
+@SuppressLint("MissingPermission")
 public class BluetoothHIDService extends Service {
-
     private static final String TAG = "BluetoothHIDService";
     private BluetoothAdapter bluetoothAdapter;
     private BluetoothHidDevice hidDevice;
